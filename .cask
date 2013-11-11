@@ -15,6 +15,7 @@ installcask dropbox
 installcask fluid
 installcask google-chrome
 installcask google-chrome-canary
+installcask google-hangouts
 installcask istat-menus
 installcask iterm2
 installcask keepass-x
