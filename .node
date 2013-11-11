@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+source ~/.nvm/nvm.sh
+
+nvm install 0.10.21
+nvm alias default 0.10.21
+nvm use 0.10.21
+
+npm install -g grunt-cli
