@@ -76,3 +76,6 @@
 
 [push]
 	default = matching
+[user]
+	email = pierre@nelm.io
+	name = Pierre Spring
