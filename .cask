@@ -6,6 +6,7 @@ function installcask() {
 	brew cask install "${@}" 2> /dev/null
 }
 
+installcask airdisplay
 installcask air-server
 installcask alfred
 installcask beamer
