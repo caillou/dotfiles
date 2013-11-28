@@ -21,6 +21,7 @@ installcask istat-menus
 installcask iterm2
 installcask keepass-x
 installcask keyremap4macbook
+installcask knock
 installcask skype
 installcask sonos
 installcask spotify
