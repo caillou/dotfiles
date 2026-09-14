@@ -13,13 +13,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install tooling
-        run: brew install chezmoi bats-core shellcheck fish uv
+        run: brew install chezmoi bats-core parallel shellcheck fish uv
 
       - name: Initialise chezmoi from the checkout
         run: chezmoi init --source "$GITHUB_WORKSPACE" --promptDefaults
 
       - name: Tests
-        run: bats tests
+        run: bats --jobs "$(sysctl -n hw.ncpu)" tests
 
       # The Downloads view module, against a temporary .DS_Store. uv fetches
       # ds_store into a throwaway environment, the same way the apply script

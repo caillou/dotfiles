@@ -6,7 +6,7 @@ pre-commit:
   parallel: true
   commands:
     bats:
-      run: bats tests
+      run: bats --jobs "$(sysctl -n hw.ncpu)" tests
     python:
       run: uv run --with ds_store python3 -m unittest discover -s tests
     shellcheck:

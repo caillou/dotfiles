@@ -426,22 +426,22 @@ docs/PRDs/                 the PRD and the research behind all of this
 tests/                     bats suites, the Python unit tests, shellcheck and the secrets check
 ```
 
-Scripts are numbered because chezmoi runs them in alphabetical order:
+Scripts are numbered because chezmoi runs them in alphabetical order. The
+two-digit prefix is the whole ordering rule, so `ls .chezmoiscripts` is the
+current list and adding a script means adding one file with a free number:
 
-| script | when |
+| prefix | what runs there |
 |---|---|
-| `run_once_before_00-homebrew` | once, before any file is written |
-| `10-packages` | every apply |
-| `20-fish-plugins`, `21-login-shell` | every apply |
-| `30-github-and-ssh` | every apply |
-| `40-asdf` | every apply |
-| `45-claude-code` | every apply |
-| `50-karabiner` | every apply |
-| `60-defaults`, `61-dock`, `62-downloads-view` | on change |
-| `63-iterm2`, `64-display` | every apply |
-| `90-report` | every apply, last |
+| `00` | the Homebrew installer, once, before any file is written |
+| `10` | packages |
+| `2x` | shells: fish plugins, the login shell |
+| `3x` | GitHub and ssh |
+| `4x` | developer tools: asdf, the Claude Code CLI |
+| `5x` | keyboard |
+| `6x` | macOS settings: defaults, Dock, Downloads view, iTerm2, display |
+| `90` | the report, last |
 
-Two rules behind that table. The Homebrew installer is the only `before`
+Two rules behind the names. The Homebrew installer is the only `before`
 script and the only one without the shared preamble, because chezmoi keys a
 run-once script by its rendered content and an edit to the preamble would
 re-run the installer. And only pure writers use `run_onchange_`: chezmoi
@@ -456,11 +456,15 @@ report reads live. Deleting a marker makes the report mention its item again.
 ## Tests
 
 ```sh
-bats tests
+bats --jobs "$(sysctl -n hw.ncpu)" tests   # one bats file alone: bats tests/iterm2.bats
 uv run --with ds_store python3 -m unittest discover -s tests
 tests/shellcheck-scripts.sh
 tests/secrets-check.sh
 ```
+
+`--jobs` needs GNU `parallel`, which the Brewfile installs. Every test runs in
+its own temporary tree, so the files run side by side without touching each
+other.
 
 Nothing there touches the machine it runs on: `HOME` and the XDG variables
 point into a temporary tree, and brew, dockutil, asdf, fish and Finder are
