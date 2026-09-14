@@ -24,7 +24,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX \
 # source directory defaults to the repo; a test that copies part of the repo
 # somewhere it can modify names that copy, and `render` follows it.
 chezmoi_config() {
-  CHEZMOI_CONFIG="$BATS_TEST_TMPDIR/chezmoi.toml"
+  CHEZMOI_CONFIG="${BATS_TEST_TMPDIR:-$BATS_FILE_TMPDIR}/chezmoi.toml"
   CHEZMOI_SOURCE="${4:-$REPO_ROOT}"
   cat >"$CHEZMOI_CONFIG" <<EOF
 sourceDir = "$CHEZMOI_SOURCE"
@@ -46,14 +46,14 @@ render() {
 # render_facts [managed] -> path of the rendered facts preamble
 render_facts() {
   chezmoi_config "${1:-false}"
-  local facts="$BATS_TEST_TMPDIR/facts.sh"
+  local facts="${BATS_TEST_TMPDIR:-$BATS_FILE_TMPDIR}/facts.sh"
   render '{{ template "facts.sh" . }}' >"$facts"
   printf '%s' "$facts"
 }
 
 # facts_probe <facts-file> <shell code> -> runs the code with the preamble loaded
 facts_probe() {
-  local facts="$1" code="$2" probe="$BATS_TEST_TMPDIR/probe.sh"
+  local facts="$1" code="$2" probe="${BATS_TEST_TMPDIR:-$BATS_FILE_TMPDIR}/probe.sh"
   {
     printf '#!/bin/sh\n'
     printf '. "%s"\n' "$facts"
@@ -61,6 +61,9 @@ facts_probe() {
   } >"$probe"
   run sh "$probe"
 }
+
+# Every helper works from the test's temporary directory, or from the file's
+# when called from setup_file, where bats leaves BATS_TEST_TMPDIR unset.
 
 # isolate_home
 #
@@ -70,7 +73,7 @@ facts_probe() {
 # The physical path, because git resolves a repository's path before it
 # matches an includeIf and /var is a symlink to /private/var on macOS.
 isolate_home() {
-  TMP="$(cd "$BATS_TEST_TMPDIR" && pwd -P)"
+  TMP="$(cd "${BATS_TEST_TMPDIR:-$BATS_FILE_TMPDIR}" && pwd -P)"
   export HOME="$TMP/home"
   export XDG_CONFIG_HOME="$HOME/.config"
   export XDG_CACHE_HOME="$HOME/.cache"
@@ -87,10 +90,12 @@ isolate_home() {
 # function in a subshell and lose the PATH change), and exits <exit>, 0 by
 # default. A body that exits itself wins over <exit>. STUB_BIN names the
 # directory for the seams (DOTFILES_<TOOL>) that need a path rather than a
-# name on PATH.
+# name on PATH. The helper cannot tell a heredoc from a pipe bats itself was
+# started with, so a stub without a body passes </dev/null when the suite may
+# run under `something | bats`.
 stub() {
   local name="$1" log="${2:-}" code="${3:-0}"
-  STUB_BIN="$BATS_TEST_TMPDIR/bin"
+  STUB_BIN="${BATS_TEST_TMPDIR:-$BATS_FILE_TMPDIR}/bin"
   mkdir -p "$STUB_BIN"
   {
     printf '#!/bin/sh\n'

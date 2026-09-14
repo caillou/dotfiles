@@ -47,9 +47,6 @@ AC Power:
 
 setup_file() {
   load helpers
-  # The helpers key on BATS_TEST_TMPDIR, which bats leaves unset here; the
-  # file's directory stands in, and every test gets its own afterwards.
-  BATS_TEST_TMPDIR="$BATS_FILE_TMPDIR"
   machine
 
   # The log is named as a variable, unexpanded, so each stub opens whichever
