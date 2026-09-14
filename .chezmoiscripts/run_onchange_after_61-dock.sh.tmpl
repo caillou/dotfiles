@@ -21,7 +21,8 @@ DOCKUTIL="${DOTFILES_DOCKUTIL:-dockutil}"
 SYSTEM_APPLICATIONS="${DOTFILES_SYSTEM_APPLICATIONS:-/System/Applications}"
 
 if ! has_command "$DOCKUTIL"; then
-  echo "dock: dockutil is not installed, skipping. The Dock is rebuilt on the next change to the allow-list."
+  echo "dock: dockutil is not installed, skipping. The next \`chezmoi apply\` does not retry this script, so once dockutil is there run"
+  echo "  chezmoi state delete-bucket --bucket=entryState && chezmoi apply"
   exit 0
 fi
 

@@ -27,17 +27,17 @@ installer="$(mktemp)"
 trap 'rm -f "$installer"' EXIT
 
 if ! curl -fsSL "$URL" -o "$installer"; then
-  echo "homebrew: could not download the installer from $URL, check the network and re-run the apply"
+  echo "homebrew: could not download the installer from $URL, check the network. The next \`chezmoi apply\` downloads the installer again."
   exit 1
 fi
 if [ ! -s "$installer" ]; then
-  echo "homebrew: the downloaded installer is empty, check the network and re-run the apply"
+  echo "homebrew: the downloaded installer is empty, check the network. The next \`chezmoi apply\` downloads the installer again."
   exit 1
 fi
 case "$(head -n 1 "$installer")" in
 '#!'*) ;;
 *)
-  echo "homebrew: the download is not a shell script (a captive portal page?), re-run the apply on a real network"
+  echo "homebrew: the download is not a shell script (a captive portal page?), connect to a real network. The next \`chezmoi apply\` downloads the installer again."
   exit 1
   ;;
 esac

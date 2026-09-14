@@ -319,7 +319,7 @@ refute_called() {
   stub_fish 1
   fish_plugins_script
   [ "$status" -eq 0 ]
-  [[ "$output" == *'the next apply will try again'* ]]
+  [[ "$output" == *'fisher update failed. The next `chezmoi apply` installs fisher and the plugins.'* ]]
   [ ! -f "$DOTFILES_STATE/fish-plugins.hash" ]
 
   stub_fish

@@ -51,7 +51,7 @@ mas "{{ trimSuffix ".app" .app }}", id: {{ .name }}
 EOF_MAS
 {{ end }}
 if ! has_command "$BREW"; then
-  echo "packages: Homebrew is not installed, skipping. Re-run the apply once it is."
+  echo "packages: Homebrew is not installed, skipping. The next \`chezmoi apply\` installs the packages."
   exit 0
 fi
 

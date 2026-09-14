@@ -51,7 +51,7 @@ if app_present 'Karabiner-Elements.app'; then
   if [ ! -f "$karabiner_config" ]; then
     step 'Launch Karabiner-Elements once so it creates its config file at'
     note "$karabiner_config."
-    note 'The next apply builds the rules into it.'
+    note "The next \`chezmoi apply\` builds the rules into it."
   fi
 fi
 
@@ -117,7 +117,7 @@ if [ -n "$packages_status" ] && [ "$packages_status" != 0 ]; then
       done
   fi
   note 'A signed-out App Store is the usual cause: open the App Store, sign in,'
-  note 'then run chezmoi apply again.'
+  note "then run \`chezmoi apply\` again."
 fi
 {{ else }}
 # --- apps the employer has to hand out -------------------------------------

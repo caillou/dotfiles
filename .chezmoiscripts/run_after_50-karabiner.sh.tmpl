@@ -16,7 +16,7 @@ NPM="${DOTFILES_NPM:-npm}"
 # Karabiner can arrive later: Self Service on the managed Mac, or a deliberate
 # install. A missing Karabiner is a skip, and the next sync tries again.
 if ! app_present "Karabiner-Elements.app"; then
-  echo "karabiner: Karabiner-Elements is not installed, skipping. Re-run the apply once it is."
+  echo "karabiner: Karabiner-Elements is not installed, skipping. The next \`chezmoi apply\` builds the rules."
   exit 0
 fi
 
@@ -25,7 +25,7 @@ fi
 # launch, which the manual checklist asks for.
 if [ ! -f "$CONFIG" ]; then
   echo "karabiner: Karabiner-Elements has never been launched, so $CONFIG does not"
-  echo "karabiner: exist yet. Launch it once; the next sync builds the rules."
+  echo "karabiner: exist yet. Launch it once; the next \`chezmoi apply\` builds the rules."
   exit 0
 fi
 
@@ -40,7 +40,7 @@ fi
 
 if ! has_command "$NPM"; then
   echo "karabiner: npm is not available yet (it comes from the asdf node);"
-  echo "karabiner: the next sync tries again."
+  echo "karabiner: the next \`chezmoi apply\` builds the rules."
   exit 0
 fi
 
@@ -49,12 +49,12 @@ fi
 # unstored, so the next sync retries.
 echo "karabiner: building the rules from $SOURCE"
 if ! (cd "$SOURCE" && "$NPM" ci </dev/null); then
-  echo "karabiner: npm ci failed; the next sync tries again"
+  echo "karabiner: npm ci failed. The next \`chezmoi apply\` builds the rules."
   exit 0
 fi
 
 if ! (cd "$SOURCE" && "$NPM" run build </dev/null); then
-  echo "karabiner: the build failed; the next sync tries again"
+  echo "karabiner: the build failed. The next \`chezmoi apply\` builds the rules."
   exit 0
 fi
 

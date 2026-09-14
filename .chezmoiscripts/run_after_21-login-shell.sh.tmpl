@@ -7,7 +7,7 @@ FISH="${DOTFILES_FISH:-${HOMEBREW_PREFIX:-/opt/homebrew}/bin/fish}"
 SHELLS="${DOTFILES_SHELLS:-/etc/shells}"
 
 if [ ! -x "$FISH" ]; then
-  echo "login-shell: fish is not installed, skipping. Re-run the apply once it is."
+  echo "login-shell: fish is not installed, skipping. The next \`chezmoi apply\` sets fish as the login shell."
   exit 0
 fi
 

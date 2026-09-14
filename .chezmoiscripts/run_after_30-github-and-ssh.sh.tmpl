@@ -55,7 +55,7 @@ if ! has_private_key; then
 fi
 
 if ! has_command "$GH"; then
-  echo "github-and-ssh: gh is not installed, skipping the GitHub steps. Re-run the apply once it is."
+  echo "github-and-ssh: gh is not installed, skipping the GitHub steps. The next \`chezmoi apply\` runs the GitHub login and uploads the key."
   exit 0
 fi
 
@@ -68,7 +68,7 @@ fi
 if ! "$GH" auth token >/dev/null 2>&1 && ! "$GH" auth status >/dev/null 2>&1; then
   echo "github-and-ssh: logging in to GitHub, a browser window opens."
   if ! "$GH" auth login --web --hostname github.com --git-protocol ssh --skip-ssh-key --scopes admin:public_key; then
-    echo "github-and-ssh: the GitHub login did not finish. Re-run 'chezmoi apply' to try again."
+    echo "github-and-ssh: the GitHub login did not finish. The next \`chezmoi apply\` tries the GitHub login again."
     exit 0
   fi
 fi

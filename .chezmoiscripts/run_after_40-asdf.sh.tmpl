@@ -12,7 +12,7 @@ TOOL_VERSIONS="$HOME/.tool-versions"
 ASDF="${DOTFILES_ASDF:-asdf}"
 
 if ! has_command "$ASDF"; then
-  echo "asdf: asdf is not installed, skipping. Re-run the apply once it is."
+  echo "asdf: asdf is not installed, skipping. The next \`chezmoi apply\` installs the pinned versions."
   exit 0
 fi
 
@@ -72,7 +72,7 @@ done <"$TOOL_VERSIONS"
 "$ASDF" reshim </dev/null || status=1
 
 if [ "$status" -ne 0 ]; then
-  echo "asdf: something did not install; the next sync tries again"
+  echo "asdf: something did not install. The next \`chezmoi apply\` installs the pinned versions."
   exit 0
 fi
 

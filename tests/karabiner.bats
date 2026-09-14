@@ -329,7 +329,7 @@ $SOURCE_DIR/.karabiner run build" ]
   export NPM_STUB_FAIL_CI=1
   karabiner_script
   [ "$status" -eq 0 ]
-  [[ "$output" == *'the next sync tries again'* ]]
+  [[ "$output" == *'npm ci failed. The next `chezmoi apply` builds the rules.'* ]]
   [ ! -f "$DOTFILES_STATE/karabiner.hash" ]
 
   unset NPM_STUB_FAIL_CI
@@ -346,7 +346,7 @@ $SOURCE_DIR/.karabiner run build" ]
   export NPM_STUB_FAIL_BUILD=1
   karabiner_script
   [ "$status" -eq 0 ]
-  [[ "$output" == *'the build failed'* ]]
+  [[ "$output" == *'the build failed. The next `chezmoi apply` builds the rules.'* ]]
   [ ! -f "$DOTFILES_STATE/karabiner.hash" ]
 
   unset NPM_STUB_FAIL_BUILD

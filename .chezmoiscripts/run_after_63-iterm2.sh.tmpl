@@ -6,7 +6,7 @@
 # iTerm2 can arrive after the first apply (Self Service on the managed Mac),
 # so a missing iTerm2 is a skip, not a failure.
 if ! app_present "iTerm.app"; then
-  echo "iterm2: iTerm2 is not installed, skipping. Re-run the apply once it is."
+  echo "iterm2: iTerm2 is not installed, skipping. The next \`chezmoi apply\` points iTerm2 at the repo folder."
   exit 0
 fi
 

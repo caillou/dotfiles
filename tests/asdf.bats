@@ -266,7 +266,7 @@ python 3.12.13' ]
   apply_tool_versions
   asdf_script
   [ "$status" -eq 0 ]
-  [[ "$output" == *'the next sync tries again'* ]]
+  [[ "$output" == *'something did not install. The next `chezmoi apply` installs the pinned versions.'* ]]
   [ ! -f "$DOTFILES_STATE/asdf.hash" ]
 
   unset ASDF_STUB_FAIL_INSTALL

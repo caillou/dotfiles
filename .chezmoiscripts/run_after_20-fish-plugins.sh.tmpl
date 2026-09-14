@@ -6,7 +6,7 @@
 FISH="${DOTFILES_FISH:-${HOMEBREW_PREFIX:-/opt/homebrew}/bin/fish}"
 
 if [ ! -x "$FISH" ]; then
-  echo "fish-plugins: fish is not installed, skipping. Re-run the apply once it is."
+  echo "fish-plugins: fish is not installed, skipping. The next \`chezmoi apply\` installs fisher and the plugins."
   exit 0
 fi
 
@@ -28,7 +28,7 @@ fi
 if ! fisher_installed; then
   echo "fish-plugins: installing fisher"
   if ! "$FISH" --command 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher'; then
-    echo "fish-plugins: could not install fisher, the next apply will try again" >&2
+    echo "fish-plugins: could not install fisher. The next \`chezmoi apply\` installs fisher and the plugins." >&2
     exit 0
   fi
 fi
@@ -40,6 +40,6 @@ fi
 if "$FISH" --command 'fisher update'; then
   store_hash fish-plugins "$PLUGINS_HASH"
 else
-  echo "fish-plugins: fisher update failed, the next apply will try again" >&2
+  echo "fish-plugins: fisher update failed. The next \`chezmoi apply\` installs fisher and the plugins." >&2
 fi
 exit 0
