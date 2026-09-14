@@ -7,8 +7,11 @@
 # instead of on a known display. True Tone has no key in this domain and is
 # left at its default.
 #
-# The domain belongs to root and cannot be read without sudo, so this costs one
-# password prompt per apply. Export, edit, import is the only safe route in:
+# The domain belongs to root and cannot be read without sudo, so reading it
+# costs a password prompt. That prompt is paid on the first apply and again
+# whenever the marker was cleared since; once a run has read the flag back off
+# on every display, the marker stands in for the read and a settled Mac
+# applies without sudo. Export, edit, import is the only safe route in:
 # writing the file directly lets cfprefsd's cache clobber the change. Nothing
 # here may fail the apply, so every dead end exits 0 after saying what is left
 # to do by hand.
@@ -66,6 +69,14 @@ with open(destination, "wb") as handle:
 sys.exit(10)
 EOF_PYTHON
 }
+
+# An earlier run read the flag back off on every display and no dead end has
+# cleared the marker since, so root's domain is not read again. Removing the
+# marker brings the read, and the prompt, back.
+if marked auto-brightness-applied; then
+  echo 'display: auto-brightness is already off on every display, as an earlier apply left it'
+  exit 0
+fi
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT

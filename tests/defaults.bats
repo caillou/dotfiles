@@ -10,50 +10,29 @@
 # real tools are `plutil`, which reads a fixture the test writes, and the
 # system python, which edits the exported hotkey plist exactly as it does on a
 # real apply.
+#
+# The script is a pure writer, so one run tells everything about what it
+# writes: setup_file applies it once and the value tests read that run's log
+# through `applied`. Only a test that changes the machine first (the wallpaper
+# store, pmset's report, the live pointer speed, a missing python) applies
+# again, through `apply`.
 
-setup() {
-  load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
-
-  export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
-
-  DEFAULTS="$REPO_ROOT/.chezmoiscripts/run_onchange_after_60-defaults.sh.tmpl"
-  BIN="$BATS_TEST_TMPDIR/bin"
-  LOG="$BATS_TEST_TMPDIR/commands.log"
-  EXPORTED="$BATS_TEST_TMPDIR/exported.plist"
-  IMPORTED="$BATS_TEST_TMPDIR/imported.plist"
-  mkdir -p "$BIN"
-
-  # What `defaults export` hands out and where `defaults import` lands, so the
-  # hotkey round-trip can be inspected.
-  empty_plist >"$EXPORTED"
-
-  stub defaults <<EOF
-case "\$1" in
-export) cat "$EXPORTED" ;;
-import) cat >"$IMPORTED" ;;
-esac
-EOF
-  stub killall </dev/null
-  stub sudo </dev/null
-  stub activateSettings </dev/null
-  stub osascript <<'EOF'
-[ -z "${OSASCRIPT_FAILS:-}" ] || exit 1
-EOF
-  stub hidutil <<'EOF'
-[ -z "${POINTER_LIVE-unset}" ] || echo "${POINTER_LIVE:-45056}"
-EOF
-  stub pmset <<'EOF'
-[ "$1" != -g ] || printf '%s\n' "$PMSET_STATE"
-EOF
-  export DOTFILES_ACTIVATE_SETTINGS="$BIN/activateSettings"
+# machine
+#
+# The Mac a run sees, under $BATS_TEST_TMPDIR: an isolated home, its own state
+# directory, and the log and plists the stubs read and write. The stubs take
+# those paths from the environment at run time, so the ones setup_file writes
+# serve every run: a freshly written stub costs about 150 ms of macOS's
+# first-execution check, and seven per test was most of this file's time.
+machine() {
+  isolate_home
+  export DOTFILES_STATE="$TMP/state"
+  export DEFAULTS_LOG="$TMP/commands.log"
+  export DEFAULTS_EXPORTED="$TMP/exported.plist"
+  export DEFAULTS_IMPORTED="$TMP/imported.plist"
+  LOG="$DEFAULTS_LOG"
+  IMPORTED="$DEFAULTS_IMPORTED"
+  hotkeys_domain >"$DEFAULTS_EXPORTED"
 
   # What `pmset -g custom` reports. This machine needs all four values
   # changed; the tests that care about the comparison override it.
@@ -66,39 +45,88 @@ AC Power:
  sleep                1"
 }
 
-# stub <name> <<'EOF' body EOF  -> a command that logs its arguments and then
-# runs the body. Callers with nothing to add pass </dev/null.
-stub() {
-  {
-    printf '#!/bin/sh\n'
-    printf 'echo "%s $*" >>"%s"\n' "$1" "$LOG"
-    cat
-    printf 'exit 0\n'
-  } >"$BIN/$1"
-  chmod +x "$BIN/$1"
+setup_file() {
+  load helpers
+  # The helpers key on BATS_TEST_TMPDIR, which bats leaves unset here; the
+  # file's directory stands in, and every test gets its own afterwards.
+  BATS_TEST_TMPDIR="$BATS_FILE_TMPDIR"
+  machine
+
+  # The log is named as a variable, unexpanded, so each stub opens whichever
+  # log the run's environment names. Stubs without a body take /dev/null so
+  # they never read a stdin bats inherited. What `defaults export` hands out
+  # and where `defaults import` lands are the same kind of seam, so the hotkey
+  # round-trip can be inspected.
+  stub defaults '$DEFAULTS_LOG' <<'EOF'
+case "$1" in
+export) cat "$DEFAULTS_EXPORTED" ;;
+import) cat >"$DEFAULTS_IMPORTED" ;;
+esac
+EOF
+  stub killall '$DEFAULTS_LOG' </dev/null
+  stub sudo '$DEFAULTS_LOG' </dev/null
+  stub activateSettings '$DEFAULTS_LOG' </dev/null
+  stub osascript '$DEFAULTS_LOG' <<'EOF'
+[ -z "${OSASCRIPT_FAILS:-}" ] || exit 1
+EOF
+  stub hidutil '$DEFAULTS_LOG' <<'EOF'
+[ -z "${POINTER_LIVE-unset}" ] || echo "${POINTER_LIVE:-45056}"
+EOF
+  stub pmset '$DEFAULTS_LOG' <<'EOF'
+[ "$1" != -g ] || printf '%s\n' "$PMSET_STATE"
+EOF
+  export DOTFILES_ACTIVATE_SETTINGS="$STUB_BIN/activateSettings"
+
+  export SCRIPT="$BATS_FILE_TMPDIR/defaults.sh"
+  render --file "$REPO_ROOT/.chezmoiscripts/run_onchange_after_60-defaults.sh.tmpl" >"$SCRIPT"
+
+  # The one apply the read-only tests look at.
+  run sh "$SCRIPT"
+  export APPLIED_STATUS="$status"
+  export APPLIED_OUTPUT="$output"
+  export APPLIED_HOME="$HOME"
+  export APPLIED_STATE="$DOTFILES_STATE"
+  export APPLIED_LOG="$LOG"
+  export APPLIED_IMPORTED="$IMPORTED"
 }
 
-empty_plist() {
+setup() {
+  load helpers
+  machine
+}
+
+# hotkeys_domain -> what `defaults export com.apple.symbolichotkeys` hands out:
+# a domain with one hotkey already in it, so the edit has something to keep.
+hotkeys_domain() {
   cat <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict/>
+<dict>
+  <key>AppleSymbolicHotKeys</key>
+  <dict>
+    <key>32</key>
+    <dict>
+      <key>enabled</key><true/>
+    </dict>
+  </dict>
+</dict>
 </plist>
 EOF
 }
 
-# script -> path of the rendered script
-script() {
-  if [ ! -f "$BATS_TEST_TMPDIR/defaults.sh" ]; then
-    render --file "$DEFAULTS" >"$BATS_TEST_TMPDIR/defaults.sh"
-  fi
-  printf '%s' "$BATS_TEST_TMPDIR/defaults.sh"
+# applied -> the run setup_file did, as apply leaves one: status, output, and
+# the log and imported plist the assertions read
+applied() {
+  status="$APPLIED_STATUS"
+  output="$APPLIED_OUTPUT"
+  LOG="$APPLIED_LOG"
+  IMPORTED="$APPLIED_IMPORTED"
 }
 
-# apply -> runs the rendered script with the stubs in front of PATH
+# apply -> runs the rendered script on this test's machine
 apply() {
-  PATH="$BIN:$PATH" run sh "$(script)"
+  run sh "$SCRIPT"
 }
 
 logged() {
@@ -125,13 +153,11 @@ at() {
 # --- the order the script does things in -----------------------------------
 
 @test "the script quits System Settings, writes, activates, then restarts" {
-  local file
-  file="$(script)"
-  quit="$(at "$file" 'tell application "System Settings" to quit')"
-  first_write="$(grep -n -m 1 '^defaults write ' "$file" | cut -d : -f 1)"
-  last_write="$(grep -n '^defaults ' "$file" | tail -n 1 | cut -d : -f 1)"
-  activate="$(at "$file" '"$ACTIVATE_SETTINGS" -u')"
-  restart="$(at "$file" 'killall Finder Dock SystemUIServer')"
+  quit="$(at "$SCRIPT" 'tell application "System Settings" to quit')"
+  first_write="$(grep -n -m 1 '^defaults write ' "$SCRIPT" | cut -d : -f 1)"
+  last_write="$(grep -n '^defaults ' "$SCRIPT" | tail -n 1 | cut -d : -f 1)"
+  activate="$(at "$SCRIPT" '"$ACTIVATE_SETTINGS" -u')"
+  restart="$(at "$SCRIPT" 'killall Finder Dock SystemUIServer')"
 
   [ "$quit" -lt "$first_write" ]
   [ "$last_write" -lt "$activate" ]
@@ -139,7 +165,7 @@ at() {
 }
 
 @test "the same order holds when it runs" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   quit="$(at "$LOG" 'osascript -e tell application "System Settings" to quit')"
   first_write="$(grep -n -m 1 '^defaults write ' "$LOG" | cut -d : -f 1)"
@@ -154,25 +180,23 @@ at() {
 }
 
 @test "it is a pure writer: no hash, no state of its own, always exits 0" {
-  apply
+  applied
   [ "$status" -eq 0 ]
-  [ ! -f "$DOTFILES_STATE/defaults.hash" ]
+  [ ! -f "$APPLIED_STATE/defaults.hash" ]
 }
 
 @test "running it twice does exactly the same thing" {
+  # The same home as the first run, so the paths in the log agree.
+  export HOME="$APPLIED_HOME"
   apply
   [ "$status" -eq 0 ]
-  cp "$LOG" "$BATS_TEST_TMPDIR/first.log"
-  : >"$LOG"
-  apply
-  [ "$status" -eq 0 ]
-  diff "$BATS_TEST_TMPDIR/first.log" "$LOG"
+  diff "$APPLIED_LOG" "$LOG"
 }
 
 # --- the values ------------------------------------------------------------
 
 @test "keyboard and text substitution" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<'EOF'
 defaults write NSGlobalDomain com.apple.keyboard.fnState -bool true
@@ -189,7 +213,7 @@ EOF
 }
 
 @test "scrolling" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<'EOF'
 defaults write NSGlobalDomain com.apple.swipescrolldirection -bool false
@@ -198,7 +222,7 @@ EOF
 }
 
 @test "every trackpad key lands in both trackpad domains" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   for domain in com.apple.AppleMultitouchTrackpad com.apple.driver.AppleBluetoothMultitouch.trackpad; do
     writes_all <<EOF
@@ -229,7 +253,7 @@ EOF
 }
 
 @test "force click and click firmness go to the built-in trackpad only" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<'EOF'
 defaults write com.apple.AppleMultitouchTrackpad ForceSuppressed -bool true
@@ -243,7 +267,7 @@ EOF
 }
 
 @test "tap to click and secondary click also get their global and per-host copies" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<'EOF'
 defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
@@ -254,7 +278,7 @@ EOF
 }
 
 @test "pointer speed is written for the trackpad and the mouse" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<'EOF'
 defaults write NSGlobalDomain com.apple.trackpad.scaling -float 0.6875
@@ -263,21 +287,21 @@ EOF
 }
 
 @test "screenshots" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<EOF
-defaults write com.apple.screencapture location -string $HOME/Downloads
+defaults write com.apple.screencapture location -string $APPLIED_HOME/Downloads
 defaults write com.apple.screencapture type -string png
 defaults write com.apple.screencapture show-thumbnail -bool false
 EOF
 }
 
 @test "finder" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<EOF
 defaults write com.apple.finder NewWindowTarget -string PfLo
-defaults write com.apple.finder NewWindowTargetPath -string file://$HOME/Downloads/
+defaults write com.apple.finder NewWindowTargetPath -string file://$APPLIED_HOME/Downloads/
 defaults write com.apple.finder FXPreferredViewStyle -string clmv
 defaults write NSGlobalDomain AppleShowAllExtensions -bool true
 defaults write com.apple.finder ShowStatusBar -bool true
@@ -297,7 +321,7 @@ EOF
 }
 
 @test "the Desktop icon view dictionary has the types Finder stores" {
-  apply
+  applied
   [ "$status" -eq 0 ]
 
   local prefix='defaults write com.apple.finder DesktopViewSettings -dict-add IconViewSettings '
@@ -319,7 +343,7 @@ EOF
 }
 
 @test "window manager" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<'EOF'
 defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false
@@ -335,7 +359,7 @@ EOF
 }
 
 @test "dock appearance and the four hot corners" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<'EOF'
 defaults write com.apple.dock autohide -bool true
@@ -358,13 +382,13 @@ EOF
 }
 
 @test "what is in the Dock is left to the Dock script" {
-  apply
+  applied
   run grep -E 'persistent-apps|persistent-others' "$LOG"
   [ "$status" -ne 0 ]
 }
 
 @test "dictation is enabled with its three languages" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<'EOF'
 defaults write com.apple.HIToolbox AppleDictationAutoEnable -int 1
@@ -374,7 +398,7 @@ EOF
 }
 
 @test "what the notes mark informational or dropped is never written" {
-  apply
+  applied
   run grep -E 'AppleBluetoothMultitouch.mouse|doubleClickThreshold|LSQuarantine|com.apple.Safari|universalaccess|messageshelper|AppleInterfaceStyle|AppleShowScrollBars|AppleLocale' "$LOG"
   [ "$status" -ne 0 ]
 }
@@ -391,7 +415,7 @@ with open(sys.argv[1], "rb") as f:
 }
 
 @test "the shortcut goes through the domain, never through the plist file" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   logged 'defaults export com.apple.symbolichotkeys -'
   logged 'defaults import com.apple.symbolichotkeys -'
@@ -400,29 +424,14 @@ with open(sys.argv[1], "rb") as f:
 }
 
 @test "entry 164 carries the captured parameters, including the one over int64" {
-  apply
+  applied
   run hotkey 164
   [ "$status" -eq 0 ]
   [ "$output" = "{'enabled': True, 'value': {'parameters': [262144, 18446744073709289471], 'type': 'modifier'}}" ]
 }
 
 @test "the other hotkeys of the domain survive the edit" {
-  cat >"$EXPORTED" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>AppleSymbolicHotKeys</key>
-  <dict>
-    <key>32</key>
-    <dict>
-      <key>enabled</key><true/>
-    </dict>
-  </dict>
-</dict>
-</plist>
-EOF
-  apply
+  applied
   [ "$status" -eq 0 ]
   run hotkey 32
   [ "$output" = "{'enabled': True}" ]
@@ -471,7 +480,7 @@ EOF
 }
 
 @test "a fresh Mac with no wallpaper store gets the solid black picture" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   [[ "$output" == *'wallpaper set to solid black'* ]]
   logged 'osascript -e tell application "System Events" to set picture of every desktop to "/System/Library/Desktop Pictures/Solid Colors/Black.png"'
@@ -505,7 +514,7 @@ EOF
 # --- power -----------------------------------------------------------------
 
 @test "pmset writes every value that differs, with sudo" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   writes_all <<'EOF'
 sudo pmset -c sleep 0
@@ -543,9 +552,7 @@ AC Power:
 }
 
 @test "a failing pmset prints the manual step and does not fail the apply" {
-  stub sudo <<'EOF'
-exit 1
-EOF
+  stub sudo "$LOG" 1 </dev/null
   apply
   [ "$status" -eq 0 ]
   [[ "$output" == *'System Settings > Battery'* ]]
@@ -555,7 +562,7 @@ EOF
 # --- pointer speed read-back -----------------------------------------------
 
 @test "the live pointer speed is read before the writes and after activation" {
-  apply
+  applied
   [ "$status" -eq 0 ]
   run grep -c 'hidutil property --get HIDPointerAcceleration' "$LOG"
   [ "$output" = 2 ]

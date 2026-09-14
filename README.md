@@ -48,7 +48,8 @@ there and the next apply uses the new values; `chezmoi init` never asks again.
 
 Besides the prompts it needs your admin password, more than once. sudo's ticket
 expires during `brew bundle` and `asdf install`, and the display step reads
-preferences that belong to root on every apply. `gh` opens a browser window to
+preferences that belong to root on the first apply and after any change; a
+settled Mac does not prompt for it. `gh` opens a browser window to
 log in to GitHub, and macOS asks once for Automation consent when the wallpaper
 is set through System Events.
 
@@ -405,7 +406,8 @@ On a managed Mac:
 
 The apply asks for your admin password more than once by design: the sudo
 ticket expires during the long steps, and the display module reads preferences
-that belong to root.
+that belong to root until `auto-brightness-applied` records that the flag is
+off. After that it does not prompt.
 
 ## Layout
 

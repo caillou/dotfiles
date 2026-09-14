@@ -6,7 +6,9 @@
 # Nothing here touches this Mac. `sudo`, `killall` and `defaults` are stubs on
 # PATH, and root's domain is a plist file in a temporary directory that the
 # stubbed `defaults export` reads and the stubbed `defaults import` writes, so
-# the round trip is exercised for real while the machine is left alone.
+# the round trip is exercised for real while the machine is left alone. The
+# sudo log doubles as the count of password prompts: a settled Mac, one whose
+# marker records an earlier success, must leave it empty.
 
 DOMAIN=com.apple.CoreBrightness
 BUILTIN=37D8832A-2D66-02CA-B9F7-8F30A301B230
@@ -15,14 +17,7 @@ EXTERNAL=4D9F0C61-8B3C-4D0B-9F3F-70A0D2B1C6A1
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  isolate_home
 
   export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
   MARKER="$DOTFILES_STATE/auto-brightness-applied"
@@ -30,19 +25,14 @@ setup() {
 
   ROOT_PLIST="$BATS_TEST_TMPDIR/root-CoreBrightness.plist"
   LOG="$BATS_TEST_TMPDIR/sudo.log"
-  BIN="$BATS_TEST_TMPDIR/bin"
-  mkdir -p "$BIN"
   stub_commands
-  export PATH="$BIN:$PATH"
 }
 
 # Stubs stand in for every command that could change this Mac. They are written
 # in setup, before any test body, so a bug in the script cannot reach the real
 # sudo even in a test that never mentions it.
 stub_commands() {
-  cat >"$BIN/sudo" <<EOF
-#!/bin/sh
-printf '%s\n' "\$*" >>"$LOG"
+  stub sudo "$LOG" <<EOF
 case "\$*" in
 "-H defaults export $DOMAIN -")
   [ -f "$ROOT_PLIST" ] || exit 1
@@ -62,18 +52,12 @@ case "\$*" in
   exit 99
   ;;
 esac
-exit 0
 EOF
-  # Called without sudo these would be a bug, so they log under their own name
-  # and report failure rather than quietly standing in for the real thing.
+  # Called without sudo these would be a bug, so they log under their own bare
+  # name and report failure rather than quietly standing in for the real thing.
   for command in killall defaults; do
-    cat >"$BIN/$command" <<EOF
-#!/bin/sh
-printf 'bare %s %s\n' "$command" "\$*" >>"$LOG"
-exit 1
-EOF
+    stub "$command" "$LOG" 1 </dev/null
   done
-  chmod +x "$BIN"/*
 }
 
 # display_entry <uuid> <true|false|missing> -> one display dict
@@ -115,6 +99,12 @@ display() {
   run sh "$script"
 }
 
+# settled -> the marker an earlier apply left behind
+settled() {
+  mkdir -p "$DOTFILES_STATE"
+  : >"$MARKER"
+}
+
 # value_at <key path> -> the value in root's domain, fails when absent
 value_at() {
   plutil -extract "$1" raw -o - "$ROOT_PLIST"
@@ -133,6 +123,11 @@ refute_logged() {
   ! grep -qxF -e "$1" "$LOG"
 }
 
+# no_sudo -> nothing was logged, so no password could have been asked for
+no_sudo() {
+  [ ! -s "$LOG" ]
+}
+
 manual_instruction() {
   [[ "$output" == *'System Settings > Displays'* ]]
 }
@@ -145,7 +140,7 @@ manual_instruction() {
   [ "$status" -eq 0 ]
   [ "$(flag_of "$BUILTIN")" = false ]
   [ "$(flag_of "$SECOND")" = false ]
-  logged "-H defaults import $DOMAIN -"
+  logged "sudo -H defaults import $DOMAIN -"
   [ -f "$MARKER" ]
 }
 
@@ -161,9 +156,9 @@ manual_instruction() {
   display
   [ "$status" -eq 0 ]
   # The import comes before the restart, and the restart before the read-back.
-  [ "$(tail -3 "$LOG")" = "-H defaults import $DOMAIN -
-killall corebrightnessd
--H defaults export $DOMAIN -" ]
+  [ "$(tail -3 "$LOG")" = "sudo -H defaults import $DOMAIN -
+sudo killall corebrightnessd
+sudo -H defaults export $DOMAIN -" ]
 }
 
 @test "the rest of the domain survives the round trip" {
@@ -183,25 +178,38 @@ killall corebrightnessd
   display
   [ "$status" -eq 0 ]
   [[ "$output" == *'already off'* ]]
-  refute_logged "-H defaults import $DOMAIN -"
-  refute_logged 'killall corebrightnessd'
+  refute_logged "sudo -H defaults import $DOMAIN -"
+  refute_logged 'sudo killall corebrightnessd'
   [ -f "$MARKER" ]
 }
 
-@test "the admin password is asked for once when nothing changes" {
+@test "without the marker the domain is read through sudo, once, even when nothing changes" {
   root_domain "$(display_entry "$BUILTIN" false)"
   display
+  [ "$status" -eq 0 ]
+  logged "sudo -H defaults export $DOMAIN -"
   [ "$(wc -l <"$LOG")" -eq 1 ]
+  [ -f "$MARKER" ]
 }
 
-@test "a second apply after a write is a no-op" {
+@test "a settled Mac asks for no admin password at all" {
+  settled
+  root_domain "$(display_entry "$BUILTIN" false)"
+  display
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'already off'* ]]
+  no_sudo
+  [ -f "$MARKER" ]
+}
+
+@test "a second apply after a write is a no-op without sudo" {
   root_domain "$(display_entry "$BUILTIN" true)$(display_entry "$EXTERNAL" missing)"
   display
   : >"$LOG"
   display
   [ "$status" -eq 0 ]
   [[ "$output" == *'already off'* ]]
-  [ "$(wc -l <"$LOG")" -eq 1 ]
+  no_sudo
 }
 
 # --- dead ends never fail the apply ----------------------------------------
@@ -211,7 +219,7 @@ killall corebrightnessd
   display
   [ "$status" -eq 0 ]
   manual_instruction
-  refute_logged "-H defaults import $DOMAIN -"
+  refute_logged "sudo -H defaults import $DOMAIN -"
   [ ! -f "$MARKER" ]
 }
 
@@ -220,7 +228,7 @@ killall corebrightnessd
   display
   [ "$status" -eq 0 ]
   manual_instruction
-  refute_logged "-H defaults import $DOMAIN -"
+  refute_logged "sudo -H defaults import $DOMAIN -"
   [ ! -f "$MARKER" ]
 }
 
@@ -230,7 +238,7 @@ killall corebrightnessd
   display
   [ "$status" -eq 0 ]
   manual_instruction
-  refute_logged 'killall corebrightnessd'
+  refute_logged 'sudo killall corebrightnessd'
   [ ! -f "$MARKER" ]
 }
 
@@ -240,17 +248,25 @@ killall corebrightnessd
   display
   [ "$status" -eq 0 ]
   manual_instruction
-  logged 'killall corebrightnessd'
+  logged 'sudo killall corebrightnessd'
   [ "$(flag_of "$BUILTIN")" = true ]
   [ ! -f "$MARKER" ]
 }
 
-@test "a run that cannot finish clears an earlier success" {
-  mkdir -p "$DOTFILES_STATE"
-  : >"$MARKER"
+@test "a marker cleared after an earlier success brings the read back" {
+  root_domain "$(display_entry "$BUILTIN" true)"
+  display
+  [ -f "$MARKER" ]
+  # Cleared by hand: the next apply reads root's domain again instead of
+  # trusting the earlier success, and a run that then cannot finish leaves
+  # no marker behind.
+  rm "$MARKER"
   rm -f "$ROOT_PLIST"
+  : >"$LOG"
   display
   [ "$status" -eq 0 ]
+  logged "sudo -H defaults export $DOMAIN -"
+  manual_instruction
   [ ! -f "$MARKER" ]
 }
 
