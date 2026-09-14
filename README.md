@@ -159,6 +159,34 @@ exactly the list it is given, so leaving fisher out of its own list uninstalls
 fisher. Script 20 installs fisher when it is missing and runs `fisher update`
 whenever the file's hash changes.
 
+## Staying awake
+
+The fish function `amph` replaces Amphetamine, which was an interface over the
+same power assertions `caffeinate` already holds:
+
+```sh
+amph        # on until you say otherwise; run it again to toggle off
+amph 2h     # hours, decimals allowed: 1.5h, .5h, 0.25h
+amph 4h     # while one is running: replaces it, the old assertion killed first
+amph off
+amph status
+```
+
+It holds `-d` and `-i`, display sleep and idle system sleep. The other flags
+are not worth carrying: `-s` is valid only on AC power and `pmset` already has
+AC `sleep 0` on both Macs, `-m` covers a spinning disk, and `-u` is a nudge
+with a five-second default that turns the display on without resetting the
+idle timer, so it cannot hold off a screen saver.
+
+The session it tracks is the one it started, in `$XDG_CACHE_HOME/amph.pid`,
+and it checks the process is still a `caffeinate` before signalling it, so a
+reused pid cannot turn `amph off` into killing something else. A `caffeinate`
+started by anything other than `amph` is left alone.
+
+Nothing here survives closing the lid, and on a managed Mac the configuration
+profile's screen-saver lock is policy, not a sleep setting: `amph` does not
+outrank it.
+
 ## Which files are templates
 
 A file is a template when it needs something only chezmoi knows: the source
