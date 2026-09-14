@@ -9,13 +9,7 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME" "$BATS_TEST_TMPDIR/bin"
+  isolate_home
 
   export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
   export DOTFILES_UV="$BATS_TEST_TMPDIR/bin/uv"
@@ -27,23 +21,14 @@ setup() {
   SCRIPT="$REPO_ROOT/.chezmoiscripts/run_onchange_after_62-downloads-view.sh.tmpl"
 }
 
-# stub <command path> <log file> [exit code]
-stub() {
-  cat >"$1" <<EOF
-#!/bin/sh
-echo "\$*" >>"$2"
-exit ${3:-0}
-EOF
-  chmod +x "$1"
-}
-
+# stub_killall [exit code]
 stub_killall() {
-  stub "$DOTFILES_KILLALL" "$KILLALLLOG"
+  stub killall "$KILLALLLOG" "${1:-0}"
 }
 
 # stub_uv [exit code]
 stub_uv() {
-  stub "$DOTFILES_UV" "$UVLOG" "${1:-0}"
+  stub uv "$UVLOG" "${1:-0}"
 }
 
 rendered_script() {
@@ -66,7 +51,7 @@ downloads_view() {
   stub_uv
   downloads_view
   [ "$status" -eq 0 ]
-  [ "$(cat "$UVLOG")" = "run --with ds_store python3 $MODULE $HOME/.DS_Store" ]
+  [ "$(cat "$UVLOG")" = "uv run --with ds_store python3 $MODULE $HOME/.DS_Store" ]
   [ -f "$MODULE" ]
 }
 
@@ -75,12 +60,12 @@ downloads_view() {
   stub_uv
   downloads_view
   [ "$status" -eq 0 ]
-  [ "$(cat "$KILLALLLOG")" = 'Finder
-Finder' ]
+  [ "$(cat "$KILLALLLOG")" = 'killall Finder
+killall Finder' ]
 }
 
 @test "a Finder that is not running does not stop the script" {
-  stub "$DOTFILES_KILLALL" "$KILLALLLOG" 1
+  stub_killall 1
   stub_uv
   downloads_view
   [ "$status" -eq 0 ]

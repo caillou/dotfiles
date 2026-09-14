@@ -10,19 +10,11 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  isolate_home
 
   export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
   export DOTFILES_FISH="$BATS_TEST_TMPDIR/bin/fish"
   export DOTFILES_SHELLS="$BATS_TEST_TMPDIR/shells"
-  mkdir -p "$BATS_TEST_TMPDIR/bin"
 
   FISH_SOURCE="$REPO_ROOT/dot_config/private_fish"
   PLUGINS_SCRIPT="$REPO_ROOT/.chezmoiscripts/run_after_20-fish-plugins.sh.tmpl"
@@ -243,11 +235,9 @@ string join \n $PATH'
 # It models fisher's lifecycle: the bootstrap command makes `functions --query
 # fisher` start succeeding, so a test can tell an install from an update.
 stub_fish() {
-  cat >"$DOTFILES_FISH" <<EOF
-#!/bin/sh
-printf 'fish %s\n' "\$2" >>"$LOG"
+  stub fish "$LOG" <<EOF
 case "\$2" in
-'functions --query fisher') [ -f "$BATS_TEST_TMPDIR/fisher-installed" ] ;;
+'functions --query fisher') [ -f "$BATS_TEST_TMPDIR/fisher-installed" ] || exit 1 ;;
 'fisher update') exit ${1:-0} ;;
 *)
   [ -z "\${STUB_BOOTSTRAP_FAILS:-}" ] || exit 1
@@ -255,7 +245,6 @@ case "\$2" in
   ;;
 esac
 EOF
-  chmod +x "$DOTFILES_FISH"
 }
 
 fisher_is_installed() {
@@ -280,7 +269,7 @@ refute_called() {
   fish_plugins_script
   [ "$status" -eq 0 ]
   called 'fisher.fish | source && fisher install jorgebucaran/fisher'
-  called 'fish fisher update'
+  called 'fish --command fisher update'
   [ -f "$DOTFILES_STATE/fish-plugins.hash" ]
 }
 
@@ -301,7 +290,7 @@ refute_called() {
   : >"$LOG"
   fish_plugins_script
   [ "$status" -eq 0 ]
-  called 'fish fisher update'
+  called 'fish --command fisher update'
   refute_called 'fisher install jorgebucaran/fisher'
 }
 
@@ -325,7 +314,7 @@ refute_called() {
   stub_fish
   : >"$LOG"
   fish_plugins_script
-  called 'fish fisher update'
+  called 'fish --command fisher update'
   [ -f "$DOTFILES_STATE/fish-plugins.hash" ]
 }
 
@@ -361,13 +350,9 @@ refute_called() {
 # the same file when it succeeds, and sudo logs and runs its arguments, so a
 # broken guard still cannot reach the real machine.
 stub_login_tools() {
-  local bin="$BATS_TEST_TMPDIR/bin"
-  : >"$DOTFILES_FISH"
-  chmod +x "$DOTFILES_FISH"
+  stub fish
 
-  cat >"$bin/dscl" <<EOF
-#!/bin/sh
-printf 'dscl %s\n' "\$*" >>"$LOG"
+  stub dscl "$LOG" <<EOF
 case "\$2" in
 -read) [ ! -f "$SHELL_RECORD" ] || printf 'UserShell: %s\n' "\$(cat "$SHELL_RECORD")" ;;
 -create)
@@ -377,25 +362,19 @@ case "\$2" in
 esac
 EOF
 
-  cat >"$bin/chsh" <<EOF
-#!/bin/sh
-printf 'chsh %s\n' "\$*" >>"$LOG"
+  stub chsh "$LOG" "${1:-0}" <<EOF
 [ ${1:-0} -ne 0 ] || printf '%s\n' "\$2" >"$SHELL_RECORD"
-exit ${1:-0}
 EOF
 
-  cat >"$bin/sudo" <<EOF
-#!/bin/sh
-printf 'sudo %s\n' "\$*" >>"$LOG"
-exec "\$@"
+  stub sudo "$LOG" <<'EOF'
+exec "$@"
 EOF
-
-  chmod +x "$bin/dscl" "$bin/chsh" "$bin/sudo"
 }
 
+# The stubs are found on PATH: dscl, chsh and sudo have no seam.
 login_shell_script() {
   render --file "$LOGIN_SCRIPT" >"$BATS_TEST_TMPDIR/login-shell.sh"
-  PATH="$BATS_TEST_TMPDIR/bin:$PATH" run sh "$BATS_TEST_TMPDIR/login-shell.sh"
+  run sh "$BATS_TEST_TMPDIR/login-shell.sh"
 }
 
 @test "a fresh Mac gets fish into /etc/shells and into the login record" {

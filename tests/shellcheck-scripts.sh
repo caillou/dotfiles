@@ -12,6 +12,7 @@ config="$tmp/chezmoi.toml"
 
 # check_profile <label> <managed> <personal> <embedded>
 check_profile() {
+  # The same config tests/helpers.bash writes; POSIX sh cannot source that file.
   cat >"$config" <<EOF
 sourceDir = "$root"
 

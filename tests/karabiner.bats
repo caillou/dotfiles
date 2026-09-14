@@ -11,23 +11,15 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME for other tools, so
-  # isolate it too: a test must never write into the real home directory, and
-  # least of all into the real ~/.config/karabiner.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  # Least of all may a test write into the real ~/.config/karabiner.
+  isolate_home
 
   export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
   export DOTFILES_APPLICATIONS="$BATS_TEST_TMPDIR/Applications"
   mkdir -p "$DOTFILES_APPLICATIONS"
 
   export DOTFILES_NPM="$BATS_TEST_TMPDIR/bin/npm"
-  mkdir -p "$BATS_TEST_TMPDIR/bin"
-  # The stub reads these itself, so the heredoc below needs no escaping.
+  # The stub reads this itself, so the heredoc below needs no escaping.
   export NPM_STUB_LOG="$BATS_TEST_TMPDIR/npm.log"
 
   PROJECT="$REPO_ROOT/.karabiner"
@@ -136,11 +128,11 @@ tsconfig.json' ]
 
 # --- the script ------------------------------------------------------------
 
-# stub_npm -> an npm that logs its working directory and arguments; the build
-# writes the config file the way karabiner.ts does, in place.
+# stub_npm -> an npm that logs its working directory and arguments (its own
+# log line, because the directory is what the tests assert); the build writes
+# the config file the way karabiner.ts does, in place.
 stub_npm() {
-  cat >"$DOTFILES_NPM" <<'EOF'
-#!/bin/sh
+  stub npm <<'EOF'
 echo "$PWD $*" >>"$NPM_STUB_LOG"
 case "$1" in
 ci)
@@ -157,9 +149,7 @@ run)
   exit 2
   ;;
 esac
-exit 0
 EOF
-  chmod +x "$DOTFILES_NPM"
 }
 
 # karabiner_installed -> the app bundle the script gates on
@@ -187,18 +177,9 @@ source_copy() {
 # karabiner_script -> renders the script against the copied source and runs it
 karabiner_script() {
   [ -n "${SOURCE_DIR:-}" ] || source_copy
-  local config="$BATS_TEST_TMPDIR/chezmoi.toml"
-  cat >"$config" <<EOF
-sourceDir = "$SOURCE_DIR"
-
-[data]
-managed = false
-personal = false
-embedded = false
-EOF
+  chezmoi_config false false false "$SOURCE_DIR"
   local script="$BATS_TEST_TMPDIR/karabiner.sh"
-  chezmoi --config "$config" --source "$SOURCE_DIR" \
-    execute-template --file "$SCRIPT" >"$script"
+  render --file "$SCRIPT" >"$script"
   run sh "$script"
 }
 

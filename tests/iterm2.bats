@@ -9,20 +9,13 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  isolate_home
 
   export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
   export DOTFILES_APPLICATIONS="$BATS_TEST_TMPDIR/Applications"
   export DEFAULTS_STORE="$BATS_TEST_TMPDIR/defaults"
   export DEFAULTS_LOG="$BATS_TEST_TMPDIR/defaults.log"
-  mkdir -p "$DOTFILES_APPLICATIONS" "$DEFAULTS_STORE" "$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$DOTFILES_APPLICATIONS" "$DEFAULTS_STORE"
   : >"$DEFAULTS_LOG"
 
   ITERM2="$REPO_ROOT/.chezmoiscripts/run_after_63-iterm2.sh.tmpl"
@@ -32,16 +25,16 @@ setup() {
   # `running` fills it in. Never the real one: iTerm2 is open on this Mac.
   export PS_LIST="$BATS_TEST_TMPDIR/ps.list"
   : >"$PS_LIST"
-  printf '#!/bin/sh\ncat "$PS_LIST"\n' >"$BATS_TEST_TMPDIR/bin/ps"
-  chmod +x "$BATS_TEST_TMPDIR/bin/ps"
-  export DOTFILES_PS="$BATS_TEST_TMPDIR/bin/ps"
+  stub ps <<'EOF'
+cat "$PS_LIST"
+EOF
+  export DOTFILES_PS="$STUB_BIN/ps"
 }
 
 # A `defaults` that reads and writes a directory of files and logs every write,
 # so a test can set the starting state and assert what the script wrote.
 stub_defaults() {
-  cat >"$BATS_TEST_TMPDIR/bin/defaults" <<'EOF'
-#!/bin/sh
+  stub defaults <<'EOF'
 key="$DEFAULTS_STORE/$2.$3"
 case "$1" in
 read)
@@ -68,8 +61,6 @@ write)
   ;;
 esac
 EOF
-  chmod +x "$BATS_TEST_TMPDIR/bin/defaults"
-  export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
 }
 
 # preset <key> <value as `defaults read` prints it>

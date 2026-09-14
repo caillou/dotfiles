@@ -10,26 +10,19 @@
 
 setup() {
   load helpers
-  # The physical path, because git resolves a repository's path before it
-  # matches an includeIf and /var is a symlink to /private/var on macOS.
-  TMP="$(cd "$BATS_TEST_TMPDIR" && pwd -P)"
-  export HOME="$TMP/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  # isolate_home sets TMP to the physical path of the test directory, which
+  # git's includeIf needs; every path below is built on it.
+  isolate_home
 
   export DOTFILES_STATE="$TMP/state"
   SCRIPT="$REPO_ROOT/.chezmoiscripts/run_after_30-github-and-ssh.sh.tmpl"
 
-  BIN="$TMP/bin"
   LOG="$TMP/commands.log"
   CHECKOUT="$TMP/checkout"
   AUTHED="$TMP/gh-authenticated"
-  mkdir -p "$BIN"
+  # Resolved before any stub goes on PATH: the test's own git calls, and the
+  # git the stub hands the checkout to, are the real one.
+  REAL_GIT="$(command -v git)"
 }
 
 # --- the managed files -----------------------------------------------------
@@ -44,7 +37,7 @@ apply() {
 
 # repo <path> -> an empty git repository at that path
 repo() {
-  git init -q "$1"
+  "$REAL_GIT" init -q "$1"
   printf '%s' "$1"
 }
 
@@ -164,9 +157,7 @@ repo() {
 # Mac behaves with the wifi off; `auth token` keeps working, because it only
 # reads the local gh config.
 stubs() {
-  cat >"$BIN/gh" <<EOF
-#!/bin/sh
-echo "gh \$*" >>"$LOG"
+  stub gh "$LOG" <<EOF
 case "\$1 \$2" in
 "auth token")
   [ -f "$AUTHED" ] || exit 1
@@ -203,14 +194,11 @@ case "\$1 \$2" in
   fi
   ;;
 esac
-exit 0
 EOF
 
   # -F <host> -f <file> answers from the known_hosts file, as the real one
   # does; anything else is a key generation and writes a fake pair.
-  cat >"$BIN/ssh-keygen" <<EOF
-#!/bin/sh
-echo "ssh-keygen \$*" >>"$LOG"
+  stub ssh-keygen "$LOG" <<EOF
 if [ "\$1" = "-F" ]; then
   grep -q "\$2" "\$4" 2>/dev/null || exit 1
   exit 0
@@ -225,25 +213,21 @@ done
 echo "not a key" >"\$out"
 chmod 600 "\$out"
 echo "ssh-rsa AAAAstub" >"\$out.pub"
-exit 0
 EOF
 
   # Runs the real git, but only against the throwaway checkout: a bug in the
   # script or in this file can never reach a repository that matters.
-  cat >"$BIN/git" <<EOF
-#!/bin/sh
-echo "git \$*" >>"$LOG"
+  stub git "$LOG" <<EOF
 for arg in "\$@"; do
-  [ "\$arg" != "$CHECKOUT" ] || exec "$(command -v git)" "\$@"
+  [ "\$arg" != "$CHECKOUT" ] || exec "$REAL_GIT" "\$@"
 done
 echo "the git stub refuses to run outside $CHECKOUT: \$*" >&2
 exit 1
 EOF
 
-  chmod +x "$BIN"/*
-  export DOTFILES_GH="$BIN/gh"
-  export DOTFILES_GIT="$BIN/git"
-  export DOTFILES_SSH_KEYGEN="$BIN/ssh-keygen"
+  export DOTFILES_GH="$STUB_BIN/gh"
+  export DOTFILES_GIT="$STUB_BIN/git"
+  export DOTFILES_SSH_KEYGEN="$STUB_BIN/ssh-keygen"
   export DOTFILES_SOURCE="$CHECKOUT"
 }
 
@@ -254,8 +238,8 @@ authenticated() {
 
 # checkout <url> -> the dotfiles checkout the script is pointed at
 checkout() {
-  git init -q "$CHECKOUT"
-  git -C "$CHECKOUT" remote add origin "$1"
+  "$REAL_GIT" init -q "$CHECKOUT"
+  "$REAL_GIT" -C "$CHECKOUT" remote add origin "$1"
 }
 
 # github_and_ssh -> runs the rendered script
@@ -267,7 +251,7 @@ github_and_ssh() {
 }
 
 origin_url() {
-  git -C "$CHECKOUT" remote get-url origin
+  "$REAL_GIT" -C "$CHECKOUT" remote get-url origin
 }
 
 # -e, because half of what is looked for starts with a dash.
@@ -517,7 +501,7 @@ refute_logged() {
 
 @test "without gh the script says so and touches no repository" {
   stubs
-  export DOTFILES_GH="$BIN/absent-gh"
+  export DOTFILES_GH="$STUB_BIN/absent-gh"
   checkout https://github.com/caillou/dotfiles.git
   github_and_ssh
   [ "$status" -eq 0 ]

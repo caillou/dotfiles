@@ -9,21 +9,9 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  isolate_home
 
   export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
-
-  BIN="$BATS_TEST_TMPDIR/bin"
-  mkdir -p "$BIN"
-  export DOTFILES_CURL="$BIN/curl"
-  export DOTFILES_BASH="$BIN/bash"
 
   LOG="$BATS_TEST_TMPDIR/installer.log"
   RAN="$BATS_TEST_TMPDIR/ran-installer.sh"
@@ -35,15 +23,15 @@ echo "would install Claude Code"
 '
   stub_bash
   stub_curl 0 "$INSTALLER_BODY"
+  export DOTFILES_CURL="$STUB_BIN/curl"
+  export DOTFILES_BASH="$STUB_BIN/bash"
 }
 
 # stub_curl <exit code> [body]  -> a curl that writes body to its -o target
 stub_curl() {
   local body="$BATS_TEST_TMPDIR/curl-body"
   printf '%s' "${2:-}" >"$body"
-  cat >"$DOTFILES_CURL" <<EOF
-#!/bin/sh
-echo "curl \$*" >>"$LOG"
+  stub curl "$LOG" "${1:-0}" <<EOF
 target=
 while [ "\$#" -gt 0 ]; do
   case "\$1" in
@@ -52,9 +40,7 @@ while [ "\$#" -gt 0 ]; do
   shift
 done
 [ -z "\$target" ] || cat "$body" >"\$target"
-exit ${1:-0}
 EOF
-  chmod +x "$DOTFILES_CURL"
 }
 
 # stub_bash [outcome]  -> a bash that logs the file it was handed and keeps a
@@ -62,9 +48,7 @@ EOF
 # default outcome creates the link the real installer creates; `nothing` exits
 # zero having installed nothing, `fail` exits non-zero.
 stub_bash() {
-  cat >"$DOTFILES_BASH" <<EOF
-#!/bin/sh
-echo "bash \$*" >>"$LOG"
+  stub bash "$LOG" <<EOF
 cat "\$1" >"$RAN"
 case "${1:-install}" in
 install)
@@ -74,16 +58,14 @@ install)
   ;;
 fail) exit 3 ;;
 esac
-exit 0
 EOF
-  chmod +x "$DOTFILES_BASH"
 }
 
 # claude_code  -> runs the rendered script against the stubs
 claude_code() {
   local script="$BATS_TEST_TMPDIR/claude-code.sh"
   render --file "$SCRIPT" >"$script"
-  PATH="$BIN:/usr/bin:/bin" run sh "$script"
+  PATH="$STUB_BIN:/usr/bin:/bin" run sh "$script"
 }
 
 # logged curl  -> did a stub record a call?
@@ -145,8 +127,7 @@ retry_message() {
 }
 
 @test "a claude on PATH is left alone even without the link" {
-  printf '#!/bin/sh\nexit 0\n' >"$BIN/claude"
-  chmod +x "$BIN/claude"
+  stub claude
 
   claude_code
   [ "$status" -eq 0 ]

@@ -9,19 +9,12 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never read or write the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  isolate_home
 
   export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
   export DOTFILES_APPLICATIONS="$BATS_TEST_TMPDIR/Applications"
   export DOTFILES_BREW="$BATS_TEST_TMPDIR/bin/brew"
-  mkdir -p "$DOTFILES_STATE" "$DOTFILES_APPLICATIONS" "$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$DOTFILES_STATE" "$DOTFILES_APPLICATIONS"
 
   REPORT="$REPO_ROOT/.chezmoiscripts/run_after_90-report.sh.tmpl"
 }
@@ -43,6 +36,13 @@ render_apps() {
   render --file "$REPORT" --override-data "$3"
 }
 
+# report_apps <managed> <personal>  -> runs the script rendered on FAKE_APPS
+report_apps() {
+  local script="$BATS_TEST_TMPDIR/report.sh"
+  render_apps "$1" "$2" "$FAKE_APPS" >"$script"
+  run sh "$script"
+}
+
 # installed <app bundle>
 installed() {
   mkdir -p "$DOTFILES_APPLICATIONS/$1"
@@ -57,9 +57,7 @@ installed() {
 # that threw stderr away, would pass against a friendlier stub and then print
 # nothing at all on a real Mac.
 stub_brew_check() {
-  cat >"$DOTFILES_BREW" <<EOF
-#!/bin/sh
-printf '%s\n' "\$*" >>"$BATS_TEST_TMPDIR/brew.log"
+  stub brew "$BATS_TEST_TMPDIR/brew.log" "${1:-1}" <<'EOF'
 {
   echo "Warning: unrelated noise brew puts on stderr"
   echo "brew bundle can't satisfy your Brewfile's dependencies."
@@ -68,9 +66,7 @@ printf '%s\n' "\$*" >>"$BATS_TEST_TMPDIR/brew.log"
   echo "→ Tap homebrew/cask-versions needs to be tapped."
   echo "Satisfy missing dependencies with brew bundle install."
 } >&2
-exit ${1:-1}
 EOF
-  chmod +x "$DOTFILES_BREW"
   : >"$DOTFILES_STATE/Brewfile"
 }
 
@@ -131,28 +127,27 @@ FAKE_APPS='{"apps":[
 # --- the apps to request ---------------------------------------------------
 
 @test "a managed machine is told to request the apps that are not installed" {
-  installed 'Slack.app'
-  report true
+  installed 'Fake Cask.app'
+  report_apps true false
   [ "$status" -eq 0 ]
   says 'Self Service Portal'
-  says '- Visual Studio Code'
-  says '- Keynote'
-  refute_says '- Slack'
+  says '- Fake Store App'
+  refute_says '- Fake Cask'
 }
 
 @test "the list is what Applications holds now, not what it held last time" {
-  report true
-  says '- Obsidian'
-  installed 'Obsidian.app'
-  report true
-  refute_says '- Obsidian'
+  report_apps true false
+  says '- Fake Cask'
+  installed 'Fake Cask.app'
+  report_apps true false
+  refute_says '- Fake Cask'
 }
 
 @test "the list follows the enabled groups" {
-  report true false false
-  refute_says '- Spotify'
-  report true true false
-  says '- Spotify'
+  report_apps true false
+  refute_says '- Fake Personal'
+  report_apps true true
+  says '- Fake Personal'
 }
 
 @test "a managed machine with every app installed is not sent to the portal" {
@@ -283,7 +278,7 @@ FAKE_APPS='{"apps":[
   says '- Tap homebrew/cask-versions'
   says 'signed-out App Store'
   run cat "$BATS_TEST_TMPDIR/brew.log"
-  says "bundle check --file $DOTFILES_STATE/Brewfile --verbose"
+  says "brew bundle check --file $DOTFILES_STATE/Brewfile --verbose"
 }
 
 @test "brew's headline, footer and stray warnings are not read as entries" {
@@ -301,11 +296,7 @@ FAKE_APPS='{"apps":[
   report false
   says '- Cask docker-desktop'
 
-  cat >"$DOTFILES_BREW" <<'EOF'
-#!/bin/sh
-exit 0
-EOF
-  chmod +x "$DOTFILES_BREW"
+  stub brew
   report false
   says 'brew bundle exited 2'
   refute_says '- Cask docker-desktop'
@@ -353,12 +344,9 @@ EOF
   export DOTFILES_APPLICATIONS="$BATS_TEST_TMPDIR/no-such-Applications"
   printf '%s\n' "$BATS_TEST_TMPDIR/gone.pub" >"$DOTFILES_STATE/ssh-key-generated"
   echo 9 >"$DOTFILES_STATE/packages-status"
-  cat >"$DOTFILES_BREW" <<'EOF'
-#!/bin/sh
+  stub brew '' 7 <<'EOF'
 echo 'not a brew' >&2
-exit 7
 EOF
-  chmod +x "$DOTFILES_BREW"
   : >"$DOTFILES_STATE/Brewfile"
 
   for managed in true false; do

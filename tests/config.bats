@@ -5,27 +5,16 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  isolate_home
   CONFIG="$XDG_CONFIG_HOME/chezmoi/chezmoi.toml"
 }
 
 # stub_profiles <enrollment line>
 stub_profiles() {
-  mkdir -p "$BATS_TEST_TMPDIR/bin"
-  cat >"$BATS_TEST_TMPDIR/bin/profiles" <<EOF
-#!/bin/sh
+  stub profiles <<EOF
 echo "Enrolled via DEP: No"
 echo "$1"
 EOF
-  chmod +x "$BATS_TEST_TMPDIR/bin/profiles"
-  export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
 }
 
 init() {

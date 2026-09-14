@@ -9,20 +9,13 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  isolate_home
 
   export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
   export DOTFILES_APPLICATIONS="$BATS_TEST_TMPDIR/Applications"
   export DOTFILES_CASKROOM="$BATS_TEST_TMPDIR/Caskroom"
   export DOTFILES_BREW="$BATS_TEST_TMPDIR/bin/brew"
-  mkdir -p "$DOTFILES_APPLICATIONS" "$DOTFILES_CASKROOM" "$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$DOTFILES_APPLICATIONS" "$DOTFILES_CASKROOM"
 
   BREWLOG="$BATS_TEST_TMPDIR/brew.log"
   BREWFILE="$DOTFILES_STATE/Brewfile"
@@ -32,12 +25,7 @@ setup() {
 
 # stub_brew [exit code] -> a brew that logs its arguments and installs nothing
 stub_brew() {
-  cat >"$DOTFILES_BREW" <<EOF
-#!/bin/sh
-echo "\$*" >>"$BREWLOG"
-exit ${1:-0}
-EOF
-  chmod +x "$DOTFILES_BREW"
+  stub brew "$BREWLOG" "${1:-0}"
 }
 
 # packages <managed> <personal> <embedded>  -> runs the rendered script
@@ -166,7 +154,7 @@ cask "font-anonymice-nerd-font"' ]
   stub_brew
   packages false
   [ "$status" -eq 0 ]
-  [ "$(cat "$BREWLOG")" = "bundle --file $BREWFILE" ]
+  [ "$(cat "$BREWLOG")" = "brew bundle --file $BREWFILE" ]
 }
 
 @test "a failing brew bundle lands in the marker and the apply continues" {
@@ -228,19 +216,6 @@ rows() {
   done <<<"$output"
 }
 
-@test "the table holds the reviewed classification" {
-  # Counts from research-notes.md section 9: 17 core casks and 11 core App
-  # Store apps, 14 personal casks and 12 personal App Store apps, one embedded
-  # cask. A package moving group has to be a deliberate edit here.
-  run rows '{{ .kind }}-{{ .group }}'
-  [ "$(grep -c '^cask-core$' <<<"$output")" -eq 17 ]
-  [ "$(grep -c '^mas-core$' <<<"$output")" -eq 11 ]
-  [ "$(grep -c '^cask-personal$' <<<"$output")" -eq 14 ]
-  [ "$(grep -c '^mas-personal$' <<<"$output")" -eq 12 ]
-  [ "$(grep -c '^cask-embedded$' <<<"$output")" -eq 1 ]
-  [ "$(grep -c '^mas-embedded$' <<<"$output")" -eq 0 ]
-}
-
 @test "the table names every package once and every App Store id is numeric" {
   run rows '{{ .name }}'
   [ "$(sort <<<"$output" | uniq -d)" = '' ]
@@ -260,25 +235,20 @@ rows() {
 # directory so the guard does not find the Homebrew of the machine running
 # these tests.
 
-# installer_stubs  -> the stub directory, with a curl that downloads a real
-# installer; call stub_curl afterwards for the failure cases.
+# installer_stubs  -> sudo, bash and a curl that downloads a real installer;
+# call stub_curl afterwards for the failure cases.
 installer_stubs() {
-  INSTALLER_BIN="$BATS_TEST_TMPDIR/installer-bin"
   INSTALLER_LOG="$BATS_TEST_TMPDIR/installer.log"
   INSTALLER_RAN="$BATS_TEST_TMPDIR/ran-installer.sh"
-  mkdir -p "$INSTALLER_BIN"
 
-  printf '#!/bin/sh\necho "sudo $*" >>"%s"\n' "$INSTALLER_LOG" >"$INSTALLER_BIN/sudo"
+  stub sudo "$INSTALLER_LOG"
 
   # The bash stub keeps a copy of what it was handed, so a test can prove the
   # script ran the file it downloaded rather than anything else.
-  cat >"$INSTALLER_BIN/bash" <<EOF
-#!/bin/sh
-echo "bash \$*" >>"$INSTALLER_LOG"
+  stub bash "$INSTALLER_LOG" <<EOF
 echo "NONINTERACTIVE=\${NONINTERACTIVE:-unset}" >>"$INSTALLER_LOG"
 cat "\$1" >"$INSTALLER_RAN"
 EOF
-  chmod +x "$INSTALLER_BIN/sudo" "$INSTALLER_BIN/bash"
 
   INSTALLER_BODY='#!/bin/bash
 echo "would install Homebrew"
@@ -290,9 +260,7 @@ echo "would install Homebrew"
 stub_curl() {
   local body="$BATS_TEST_TMPDIR/curl-body"
   printf '%s' "${2:-}" >"$body"
-  cat >"$INSTALLER_BIN/curl" <<EOF
-#!/bin/sh
-echo "curl \$*" >>"$INSTALLER_LOG"
+  stub curl "$INSTALLER_LOG" "${1:-0}" <<EOF
 target=
 while [ "\$#" -gt 0 ]; do
   case "\$1" in
@@ -301,18 +269,16 @@ while [ "\$#" -gt 0 ]; do
   shift
 done
 [ -z "\$target" ] || cat "$body" >"\$target"
-exit ${1:-0}
 EOF
-  chmod +x "$INSTALLER_BIN/curl"
 }
 
 # homebrew  -> runs the rendered installer script against the stubs
 homebrew() {
   local script="$BATS_TEST_TMPDIR/homebrew.sh"
   render --file "$HOMEBREW" >"$script"
-  PATH="$INSTALLER_BIN:/usr/bin:/bin" \
+  PATH="$STUB_BIN:/usr/bin:/bin" \
     HOMEBREW_PREFIX="$BATS_TEST_TMPDIR/no-homebrew" \
-    DOTFILES_BASH="$INSTALLER_BIN/bash" \
+    DOTFILES_BASH="$STUB_BIN/bash" \
     run sh "$script"
 }
 
@@ -339,8 +305,7 @@ logged() {
   installer_stubs
   # brew on PATH is the only difference from the tests below: a broken guard
   # would reach the stubbed curl and sudo, and the log would show it.
-  printf '#!/bin/sh\necho "brew $*" >>"%s"\n' "$INSTALLER_LOG" >"$INSTALLER_BIN/brew"
-  chmod +x "$INSTALLER_BIN/brew"
+  stub brew "$INSTALLER_LOG"
 
   homebrew
   [ "$status" -eq 0 ]

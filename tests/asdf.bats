@@ -8,23 +8,15 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  isolate_home
 
   export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
   export DOTFILES_ASDF="$BATS_TEST_TMPDIR/bin/asdf"
-  mkdir -p "$BATS_TEST_TMPDIR/bin"
 
-  # The stub reads these itself, so the heredoc below needs no escaping.
-  export ASDF_STUB_LOG="$BATS_TEST_TMPDIR/asdf.log"
+  # The stub reads this itself, so the heredoc below needs no escaping.
   export ASDF_STUB_DATA="$BATS_TEST_TMPDIR/asdf-data"
   mkdir -p "$ASDF_STUB_DATA"
+  ASDF_STUB_LOG="$BATS_TEST_TMPDIR/asdf.log"
 
   SCRIPT="$REPO_ROOT/.chezmoiscripts/run_after_40-asdf.sh.tmpl"
   TOOL_VERSIONS="$REPO_ROOT/dot_tool-versions"
@@ -34,9 +26,7 @@ setup() {
 # stub_asdf -> an asdf that logs its arguments and keeps its plugins and
 # installs as directories, so the script's own checks see the state it made.
 stub_asdf() {
-  cat >"$DOTFILES_ASDF" <<'EOF'
-#!/bin/sh
-echo "$*" >>"$ASDF_STUB_LOG"
+  stub asdf "$ASDF_STUB_LOG" <<'EOF'
 case "$1" in
 plugin)
   case "$2" in
@@ -59,9 +49,7 @@ reshim) ;;
   exit 2
   ;;
 esac
-exit 0
 EOF
-  chmod +x "$DOTFILES_ASDF"
 }
 
 # pin <plugin> <version>...  -> the home copy of ~/.tool-versions
@@ -86,23 +74,29 @@ asdf_script() {
   run sh "$script"
 }
 
+# logged <asdf arguments>  -> did the stub record exactly that call?
 logged() {
-  grep -qxF "$1" "$ASDF_STUB_LOG"
+  grep -qxF "asdf $1" "$ASDF_STUB_LOG"
 }
 
 refute_logged() {
-  ! grep -qxF "$1" "$ASDF_STUB_LOG"
+  ! grep -qxF "asdf $1" "$ASDF_STUB_LOG"
+}
+
+# logged_pins -> every plugin in the repo's versions file was added and its
+# version installed; the file is the source, so a changed pin changes nothing
+# here.
+logged_pins() {
+  while read -r plugin version; do
+    logged "plugin add $plugin"
+    logged "install $plugin $version"
+  done <"$TOOL_VERSIONS"
 }
 
 # --- the pinned versions ---------------------------------------------------
 
-@test "the versions file pins nodejs and python and nothing else" {
-  run cat "$TOOL_VERSIONS"
-  [ "$output" = 'nodejs 24.15.0
-python 3.12.13' ]
-}
-
 @test "every pin is a plugin and a single explicit version" {
+  [ -s "$TOOL_VERSIONS" ]
   while read -r plugin version extra; do
     [ -n "$plugin" ]
     [ -z "$extra" ]
@@ -138,10 +132,7 @@ python 3.12.13' ]
   apply_tool_versions
   asdf_script
   [ "$status" -eq 0 ]
-  logged 'plugin add nodejs'
-  logged 'plugin add python'
-  logged 'install nodejs 24.15.0'
-  logged 'install python 3.12.13'
+  logged_pins
   logged 'reshim'
   [ -f "$DOTFILES_STATE/asdf.hash" ]
 }
@@ -153,7 +144,7 @@ python 3.12.13' ]
   [ "$status" -eq 0 ]
   logged 'plugin add ruby'
   logged 'install ruby 3.4.1'
-  refute_logged 'install nodejs 24.15.0'
+  ! grep -q '^asdf install nodejs' "$ASDF_STUB_LOG"
 }
 
 @test "an already added plugin is not added again" {
@@ -184,13 +175,13 @@ python 3.12.13' ]
   asdf_script
   [ "$status" -eq 0 ]
   local changes
-  changes="$(grep -cE '^(plugin add|install|reshim)' "$ASDF_STUB_LOG")"
+  changes="$(grep -cE '^asdf (plugin add|install|reshim)' "$ASDF_STUB_LOG")"
 
   asdf_script
   [ "$status" -eq 0 ]
   [[ "$output" == *'the pinned versions are installed'* ]]
   # Only the read-only checks ran: nothing was added, installed or reshimmed.
-  [ "$(grep -cE '^(plugin add|install|reshim)' "$ASDF_STUB_LOG")" -eq "$changes" ]
+  [ "$(grep -cE '^asdf (plugin add|install|reshim)' "$ASDF_STUB_LOG")" -eq "$changes" ]
 }
 
 @test "a changed pin installs the new version and reshims" {
@@ -201,7 +192,7 @@ python 3.12.13' ]
   asdf_script
   [ "$status" -eq 0 ]
   logged 'install nodejs 24.15.1'
-  [ "$(grep -c '^reshim$' "$ASDF_STUB_LOG")" -eq 2 ]
+  [ "$(grep -c '^asdf reshim$' "$ASDF_STUB_LOG")" -eq 2 ]
 }
 
 @test "a version that disappeared is reinstalled even though the file is unchanged" {
@@ -211,7 +202,7 @@ python 3.12.13' ]
   rm -rf "$ASDF_STUB_DATA/installs/nodejs"
   asdf_script
   [ "$status" -eq 0 ]
-  [ "$(grep -c '^install nodejs 24.15.0$' "$ASDF_STUB_LOG")" -eq 2 ]
+  [ "$(grep -c '^asdf install nodejs 24.15.0$' "$ASDF_STUB_LOG")" -eq 2 ]
 }
 
 # --- what it must never do -------------------------------------------------
@@ -223,7 +214,7 @@ python 3.12.13' ]
   [ "$status" -eq 0 ]
   # `asdf set` would write ~/.tool-versions, which chezmoi manages: the home
   # copy would then drift from the repo on the next apply.
-  while read -r subcommand _; do
+  while read -r _ subcommand _; do
     case "$subcommand" in
     plugin | list | install | reshim) ;;
     *) return 1 ;;
@@ -272,7 +263,7 @@ python 3.12.13' ]
   unset ASDF_STUB_FAIL_INSTALL
   asdf_script
   [ "$status" -eq 0 ]
-  logged 'install nodejs 24.15.0'
+  logged_pins
   [ -f "$DOTFILES_STATE/asdf.hash" ]
 }
 
@@ -287,7 +278,7 @@ python 3.12.13' ]
 
 # --- the shell init the shell issue owns -----------------------------------
 
-# shell_files -> the managed fish and zsh startup files, once they exist
+# shell_files -> the managed fish and zsh startup files
 shell_files() {
   find "$REPO_ROOT" -path "$REPO_ROOT/.git" -prune -o \
     -path "$REPO_ROOT/docs" -prune -o \
@@ -296,17 +287,16 @@ shell_files() {
 }
 
 @test "no managed file sources the retired git-clone asdf" {
-  # The old README documents the git-clone setup and is repo-only; the README
-  # issue replaces it.
   run bash -c "grep -rIl -e 'asdf\.fish' -e 'asdf\.sh' '$REPO_ROOT' \
-    --exclude-dir=.git --exclude-dir=docs --exclude-dir=tests --exclude=README.md || true"
+    --exclude-dir=.git --exclude-dir=docs --exclude-dir=tests || true"
   [ "$output" = '' ]
 }
 
 @test "the shell init puts the asdf shims on the path" {
   local files
   files="$(shell_files)"
-  [ -n "$files" ] || skip "the shell issue has not landed its startup files yet"
+  # A renamed startup file must fail here, not pass by finding nothing.
+  [ -n "$files" ]
   while read -r file; do
     grep -q '\.asdf/shims' "$file"
   done <<<"$files"

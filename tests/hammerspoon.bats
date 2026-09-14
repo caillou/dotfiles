@@ -10,14 +10,7 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
-  mkdir -p "$HOME"
+  isolate_home
 
   CONFIG_DIR="$REPO_ROOT/dot_hammerspoon"
   INIT="$CONFIG_DIR/init.lua"
@@ -31,20 +24,12 @@ sandbox() {
   mkdir -p "$SRC"
   cp -R "$CONFIG_DIR" "$SRC/dot_hammerspoon"
   cp "$REPO_ROOT/.chezmoiignore" "$SRC/.chezmoiignore"
-  SANDBOX_CONFIG="$BATS_TEST_TMPDIR/sandbox.toml"
-  cat >"$SANDBOX_CONFIG" <<EOF
-sourceDir = "$SRC"
-
-[data]
-managed = false
-personal = false
-embedded = false
-EOF
+  chezmoi_config false false false "$SRC"
 }
 
 # sandboxed <chezmoi arguments>...
 sandboxed() {
-  chezmoi --config "$SANDBOX_CONFIG" --source "$SRC" --destination "$HOME" "$@"
+  chezmoi --config "$CHEZMOI_CONFIG" --source "$CHEZMOI_SOURCE" --destination "$HOME" "$@"
 }
 
 # managed_targets [managed] [personal] [embedded]

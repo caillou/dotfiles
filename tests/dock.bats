@@ -10,21 +10,14 @@
 
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home"
-  # XDG_CONFIG_HOME is set on this Mac and wins over HOME, so isolate it too:
-  # a test must never write into the real home directory.
-  export XDG_CONFIG_HOME="$HOME/.config"
-  export XDG_CACHE_HOME="$HOME/.cache"
-  export XDG_DATA_HOME="$HOME/.local/share"
-  export XDG_STATE_HOME="$HOME/.local/state"
+  isolate_home
   mkdir -p "$HOME/Downloads"
 
   export DOTFILES_STATE="$BATS_TEST_TMPDIR/state"
   export DOTFILES_APPLICATIONS="$BATS_TEST_TMPDIR/Applications"
   export DOTFILES_SYSTEM_APPLICATIONS="$BATS_TEST_TMPDIR/System/Applications"
-  export DOTFILES_DOCKUTIL="$BATS_TEST_TMPDIR/seam/dockutil"
-  mkdir -p "$DOTFILES_APPLICATIONS" "$DOTFILES_SYSTEM_APPLICATIONS" \
-    "$BATS_TEST_TMPDIR/seam" "$BATS_TEST_TMPDIR/bin"
+  export DOTFILES_DOCKUTIL="$BATS_TEST_TMPDIR/bin/dockutil"
+  mkdir -p "$DOTFILES_APPLICATIONS" "$DOTFILES_SYSTEM_APPLICATIONS"
 
   DOCKLOG="$BATS_TEST_TMPDIR/dockutil.log"
   KILLLOG="$BATS_TEST_TMPDIR/killall.log"
@@ -32,33 +25,17 @@ setup() {
   DOCK="$REPO_ROOT/.chezmoiscripts/run_onchange_after_61-dock.sh.tmpl"
 
   # `killall` and `defaults` are found on PATH. Homebrew's shellenv prepends
-  # its own directories inside the script, which leaves this one ahead of
-  # /usr/bin, where the real commands live.
-  stub_on_path killall "$KILLLOG"
-  stub_on_path defaults "$DEFAULTSLOG"
-  PATH="$BATS_TEST_TMPDIR/bin:$PATH"
-  export PATH
+  # its own directories inside the script, which leaves the stub directory
+  # ahead of /usr/bin, where the real commands live.
+  stub killall "$KILLLOG"
+  stub defaults "$DEFAULTSLOG"
 
   stub_dockutil
 }
 
-# stub_on_path <command> <log file>
-stub_on_path() {
-  cat >"$BATS_TEST_TMPDIR/bin/$1" <<EOF
-#!/bin/sh
-printf '%s\n' "\$*" >>"$2"
-EOF
-  chmod +x "$BATS_TEST_TMPDIR/bin/$1"
-}
-
 # stub_dockutil [exit code] -> a dockutil that logs its arguments and writes nothing
 stub_dockutil() {
-  cat >"$DOTFILES_DOCKUTIL" <<EOF
-#!/bin/sh
-printf '%s\n' "\$*" >>"$DOCKLOG"
-exit ${1:-0}
-EOF
-  chmod +x "$DOTFILES_DOCKUTIL"
+  stub dockutil "$DOCKLOG" "${1:-0}"
 }
 
 # system_app "Freeform.app" -> an app bundle on the (stubbed) system volume
@@ -96,11 +73,11 @@ dock_calls() {
   allow_list_installed
   dock
   [ "$status" -eq 0 ]
-  [ "$(dock_calls)" = "--remove all --no-restart
---add $DOTFILES_SYSTEM_APPLICATIONS/Freeform.app --section apps --no-restart
---add $DOTFILES_SYSTEM_APPLICATIONS/iPhone Mirroring.app --section apps --no-restart
---add $DOTFILES_APPLICATIONS/Numbers.app --section apps --no-restart
---add $HOME/Downloads --section others --display stack --view fan --sort dateadded --no-restart" ]
+  [ "$(dock_calls)" = "dockutil --remove all --no-restart
+dockutil --add $DOTFILES_SYSTEM_APPLICATIONS/Freeform.app --section apps --no-restart
+dockutil --add $DOTFILES_SYSTEM_APPLICATIONS/iPhone Mirroring.app --section apps --no-restart
+dockutil --add $DOTFILES_APPLICATIONS/Numbers.app --section apps --no-restart
+dockutil --add $HOME/Downloads --section others --display stack --view fan --sort dateadded --no-restart" ]
 }
 
 @test "the Downloads stack is a stack in fan view sorted by date added" {
@@ -108,7 +85,7 @@ dock_calls() {
   dock
   [ "$status" -eq 0 ]
   run grep -F -- "--add $HOME/Downloads" "$DOCKLOG"
-  [ "$output" = "--add $HOME/Downloads --section others --display stack --view fan --sort dateadded --no-restart" ]
+  [ "$output" = "dockutil --add $HOME/Downloads --section others --display stack --view fan --sort dateadded --no-restart" ]
 }
 
 @test "the allow-list apps go to the apps section and nothing else does" {
@@ -136,17 +113,14 @@ dock_calls() {
   [ "$status" -eq 0 ]
   run grep -vc -- '--no-restart' "$DOCKLOG"
   [ "$output" = 0 ]
-  [ "$(cat "$KILLLOG")" = 'Dock' ]
+  [ "$(cat "$KILLLOG")" = 'killall Dock' ]
 }
 
 @test "a Dock that is not running is not a failure" {
   allow_list_installed
-  cat >"$BATS_TEST_TMPDIR/bin/killall" <<'EOF'
-#!/bin/sh
+  stub killall '' 1 <<'EOF'
 echo "No matching processes belonging to you were found" >&2
-exit 1
 EOF
-  chmod +x "$BATS_TEST_TMPDIR/bin/killall"
   dock
   [ "$status" -eq 0 ]
   [[ "$output" == *'dock: rebuilt from the allow-list'* ]]
@@ -160,9 +134,9 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *'dock: Freeform.app is not installed, leaving it out of the Dock'* ]]
   [[ "$output" == *'dock: iPhone Mirroring.app is not installed, leaving it out of the Dock'* ]]
-  [ "$(dock_calls)" = "--remove all --no-restart
---add $DOTFILES_APPLICATIONS/Numbers.app --section apps --no-restart
---add $HOME/Downloads --section others --display stack --view fan --sort dateadded --no-restart" ]
+  [ "$(dock_calls)" = "dockutil --remove all --no-restart
+dockutil --add $DOTFILES_APPLICATIONS/Numbers.app --section apps --no-restart
+dockutil --add $HOME/Downloads --section others --display stack --view fan --sort dateadded --no-restart" ]
 }
 
 @test "a Mac where nothing on the list is installed still gets the Downloads stack" {
@@ -172,7 +146,7 @@ EOF
   [ "$output" = 0 ]
   run grep -c -- '--section others' "$DOCKLOG"
   [ "$output" = 1 ]
-  [ "$(cat "$KILLLOG")" = 'Dock' ]
+  [ "$(cat "$KILLLOG")" = 'killall Dock' ]
 }
 
 @test "a home directory without Downloads is skipped with a message" {
