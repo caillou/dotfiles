@@ -316,7 +316,10 @@ iTerm2 loads its preferences from `.iterm2/` in this repo instead of
 `~/Library/Preferences`. Script 63 sets four keys: `PrefsCustomFolder` and
 `LoadPrefsFromCustomFolder` name the folder and switch to it, and the two
 `NoSyncNeverRemindPrefsChangesLostForFile` keys turn "your changes will be
-lost" into "save automatically". It skips when iTerm2 is not installed yet.
+lost" into "save automatically". It skips when iTerm2 is not installed yet,
+and it leaves the keys alone while iTerm2 is running: a running iTerm2 would
+save the stock preferences it holds in memory over the repo plist on its next
+quit. Quit iTerm2 and run `chezmoi apply` again.
 
 The consequence is worth knowing: iTerm2 rewrites
 `.iterm2/com.googlecode.iterm2.plist` when it quits, so changing a setting in

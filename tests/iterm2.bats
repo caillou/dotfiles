@@ -28,6 +28,13 @@ setup() {
   ITERM2="$REPO_ROOT/.chezmoiscripts/run_after_63-iterm2.sh.tmpl"
   PREFS="$REPO_ROOT/.iterm2"
   stub_defaults
+  # The process list the script inspects. Empty means iTerm2 is not running;
+  # `running` fills it in. Never the real one: iTerm2 is open on this Mac.
+  export PS_LIST="$BATS_TEST_TMPDIR/ps.list"
+  : >"$PS_LIST"
+  printf '#!/bin/sh\ncat "$PS_LIST"\n' >"$BATS_TEST_TMPDIR/bin/ps"
+  chmod +x "$BATS_TEST_TMPDIR/bin/ps"
+  export DOTFILES_PS="$BATS_TEST_TMPDIR/bin/ps"
 }
 
 # A `defaults` that reads and writes a directory of files and logs every write,
@@ -72,6 +79,10 @@ preset() {
 
 installed() {
   mkdir -p "$DOTFILES_APPLICATIONS/iTerm.app"
+}
+
+running() {
+  printf '%s\n' /usr/sbin/cfprefsd "$DOTFILES_APPLICATIONS/iTerm.app/Contents/MacOS/iTerm2" >"$PS_LIST"
 }
 
 # iterm2 [managed] -> runs the rendered script
@@ -172,4 +183,36 @@ wrote_nothing() {
   iterm2
   wrote 'LoadPrefsFromCustomFolder -bool true'
   ! wrote "PrefsCustomFolder -string $PREFS"
+}
+
+# --- a running iTerm2 -------------------------------------------------------
+
+@test "it leaves the keys alone while iTerm2 is running, and says why" {
+  installed
+  running
+  iterm2
+  [ "$status" -eq 0 ]
+  wrote_nothing
+  [[ "$output" == *"iTerm2 is running"* ]]
+  [[ "$output" == *"Quit iTerm2"* ]]
+  [[ "$output" == *'chezmoi apply'* ]]
+}
+
+@test "a running iTerm2 does not turn a partial setup into a write" {
+  installed
+  preset PrefsCustomFolder "$PREFS"
+  preset LoadPrefsFromCustomFolder 1
+  running
+  iterm2
+  wrote_nothing
+}
+
+@test "a running iTerm2 that already loads from the folder is still a no-op" {
+  installed
+  iterm2
+  running
+  iterm2
+  [ "$status" -eq 0 ]
+  wrote_nothing
+  [[ "$output" == *"already"* ]]
 }

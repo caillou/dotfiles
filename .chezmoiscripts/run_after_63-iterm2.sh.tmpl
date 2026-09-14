@@ -15,7 +15,30 @@ fi
 # there, so this machine's path never reaches the committed plist.
 PREFS={{ printf "%s/.iterm2" .chezmoi.sourceDir | quote }}
 
-changed=0
+# "Save changes automatically" needs both keys: iTerm2 ignores the selection
+# unless the reminder flag is set as well.
+wanted() {
+  default_is com.googlecode.iterm2 PrefsCustomFolder "$PREFS" &&
+    default_is com.googlecode.iterm2 LoadPrefsFromCustomFolder 1 &&
+    default_is com.googlecode.iterm2 NoSyncNeverRemindPrefsChangesLostForFile 1 &&
+    default_is com.googlecode.iterm2 NoSyncNeverRemindPrefsChangesLostForFile_selection 2
+}
+
+if wanted; then
+  echo "iterm2: already loading its preferences from $PREFS"
+  exit 0
+fi
+
+# A running iTerm2 holds its current preferences in memory and, once "save
+# automatically" is on, writes them over the folder when it quits. Pointing it
+# at the repo while it runs would replace the committed plist with whatever it
+# has now, so the keys change only while iTerm2 is closed. `pgrep` misses the
+# iTerm2 process on this macOS; `ps` lists it by its full path.
+ITERM2_BINARY="$APPLICATIONS/iTerm.app/Contents/MacOS/iTerm2"
+if "${DOTFILES_PS:-ps}" -axo comm= | grep -qxF "$ITERM2_BINARY"; then
+  echo "iterm2: iTerm2 is running, leaving its preferences alone. Quit iTerm2 (Cmd-Q) and run \`chezmoi apply\` again: it saves what it holds in memory over the repo folder when it quits, which would overwrite the committed preferences."
+  exit 0
+fi
 
 # set_default <key> <write type> <write value> <value as `defaults read` prints it>
 set_default() {
@@ -23,20 +46,12 @@ set_default() {
     return 0
   fi
   defaults write com.googlecode.iterm2 "$1" "$2" "$3"
-  changed=1
 }
 
 set_default PrefsCustomFolder -string "$PREFS" "$PREFS"
 set_default LoadPrefsFromCustomFolder -bool true 1
-# "Save changes automatically" needs both keys: iTerm2 ignores the selection
-# unless the reminder flag is set as well.
 set_default NoSyncNeverRemindPrefsChangesLostForFile -bool true 1
 set_default NoSyncNeverRemindPrefsChangesLostForFile_selection -int 2 2
-
-if [ "$changed" = 0 ]; then
-  echo "iterm2: already loading its preferences from $PREFS"
-  exit 0
-fi
 
 echo "iterm2: preferences folder set to $PREFS"
 echo "iterm2: quit and reopen iTerm2 to load it. From then on iTerm2 saves its"
