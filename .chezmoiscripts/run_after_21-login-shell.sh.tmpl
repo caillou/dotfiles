@@ -1,9 +1,8 @@
 #!/bin/sh
 # Login shell: registers fish in /etc/shells and makes it the login shell.
 {{ template "facts.sh" . }}
-# Same seams as the fish-plugins script: a test points these at stubs so it
-# never touches the real /etc/shells or the real login record.
-FISH="${DOTFILES_FISH:-${HOMEBREW_PREFIX:-/opt/homebrew}/bin/fish}"
+# FISH comes from the preamble. The shells file is a seam of the same kind: a
+# test points it at a copy so it never touches the real /etc/shells.
 SHELLS="${DOTFILES_SHELLS:-/etc/shells}"
 
 if [ ! -x "$FISH" ]; then

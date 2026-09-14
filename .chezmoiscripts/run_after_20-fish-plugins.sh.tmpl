@@ -1,10 +1,7 @@
 #!/bin/sh
 # Fish plugins: installs fisher when absent and runs fisher update.
 {{ template "facts.sh" . }}
-# The preamble puts the real Homebrew first on PATH, so this is the seam a test
-# uses to point the script at a stub that installs nothing.
-FISH="${DOTFILES_FISH:-${HOMEBREW_PREFIX:-/opt/homebrew}/bin/fish}"
-
+# FISH comes from the preamble.
 if [ ! -x "$FISH" ]; then
   echo "fish-plugins: fish is not installed, skipping. The next \`chezmoi apply\` installs fisher and the plugins."
   exit 0

@@ -6,6 +6,13 @@
 #
 # The Homebrew installer script does NOT include this file: chezmoi keys
 # run-once scripts by rendered content, so editing this file would re-run it.
+#
+# Every external tool a script runs goes through a variable named after it:
+# TOOL="${DOTFILES_TOOL:-<real path or name>}". The `brew shellenv` below puts
+# /opt/homebrew/bin ahead of anything a test prepends to PATH, so a stub there
+# would never win; the variable is the seam a test points at its stub. The
+# tools more than one script runs are defined here, the rest in the script
+# that runs them.
 
 # Every script inlines the whole preamble and uses the part it needs, so the
 # unused helpers are not a smell.
@@ -28,6 +35,18 @@ mkdir -p "$STATE"
 
 # Where app bundles live. Overridable for the same reason.
 APPLICATIONS="${DOTFILES_APPLICATIONS:-/Applications}"
+
+# The generated Brewfile stays at a stable path: it is exactly what `brew
+# bundle` ran with, so `brew bundle cleanup --file "$BREWFILE"` is a meaningful
+# drift check afterwards. Edit .chezmoitemplates/Brewfile, never this copy.
+# shellcheck disable=SC2034
+BREWFILE="$STATE/Brewfile"
+
+# The shared tool seams, see the header. Not every script uses every one.
+# shellcheck disable=SC2034
+BREW="${DOTFILES_BREW:-brew}"
+# shellcheck disable=SC2034
+FISH="${DOTFILES_FISH:-${HOMEBREW_PREFIX:-/opt/homebrew}/bin/fish}"
 
 # Is this machine managed by an employer? Answered once at `chezmoi init`
 # (detected from `profiles status -type enrollment`) and editable in chezmoi's
@@ -82,4 +101,9 @@ hash_unchanged() {
 # store_hash packages <hash>
 store_hash() {
   printf '%s\n' "$2" >"$STATE/$1.hash"
+}
+
+# file_hash <path>...  -> the sha256 of the files' contents, concatenated
+file_hash() {
+  cat "$@" | shasum -a 256 | cut -d ' ' -f 1
 }

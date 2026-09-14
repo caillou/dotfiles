@@ -14,7 +14,7 @@ CONFIG="$HOME/.config/karabiner/karabiner.json"
 NPM="${DOTFILES_NPM:-npm}"
 
 # Karabiner can arrive later: Self Service on the managed Mac, or a deliberate
-# install. A missing Karabiner is a skip, and the next sync tries again.
+# install. A missing Karabiner is a skip; the next apply builds the rules.
 if ! app_present "Karabiner-Elements.app"; then
   echo "karabiner: Karabiner-Elements is not installed, skipping. The next \`chezmoi apply\` builds the rules."
   exit 0
@@ -25,28 +25,27 @@ fi
 # launch, which the manual checklist asks for.
 if [ ! -f "$CONFIG" ]; then
   echo "karabiner: Karabiner-Elements has never been launched, so $CONFIG does not"
-  echo "karabiner: exist yet. Launch it once; the next \`chezmoi apply\` builds the rules."
+  echo "karabiner: exist yet. Launch it once. The next \`chezmoi apply\` builds the rules."
   exit 0
 fi
 
 # The rules file and the lockfile are the whole input to the build: same bytes,
 # same karabiner.json. The hash is stored only after a build succeeded, so a
 # matching hash is also the record of that success.
-hash="$(cat "$SOURCE/src/index.ts" "$SOURCE/package-lock.json" | shasum -a 256 | cut -d ' ' -f 1)"
+hash="$(file_hash "$SOURCE/src/index.ts" "$SOURCE/package-lock.json")"
 if hash_unchanged karabiner "$hash"; then
   # Nothing to say on the common path: every apply runs this script.
   exit 0
 fi
 
 if ! has_command "$NPM"; then
-  echo "karabiner: npm is not available yet (it comes from the asdf node);"
-  echo "karabiner: the next \`chezmoi apply\` builds the rules."
+  echo "karabiner: npm is not available yet (it comes from the asdf node), skipping. The next \`chezmoi apply\` builds the rules."
   exit 0
 fi
 
 # A build must never abort the apply: npm can fail on a flaky network, and a
 # broken rules file must not stop the rest of the sync. The hash stays
-# unstored, so the next sync retries.
+# unstored, so the next apply builds the rules.
 echo "karabiner: building the rules from $SOURCE"
 if ! (cd "$SOURCE" && "$NPM" ci </dev/null); then
   echo "karabiner: npm ci failed. The next \`chezmoi apply\` builds the rules."

@@ -4,15 +4,7 @@
 {{- $groups := list "core" }}
 {{- if .personal }}{{ $groups = append $groups "personal" }}{{ end }}
 {{- if .embedded }}{{ $groups = append $groups "embedded" }}{{ end }}
-# The generated Brewfile stays at a stable path: it is exactly what `brew
-# bundle` ran with, so `brew bundle cleanup --file "$BREWFILE"` is a meaningful
-# drift check afterwards. Edit .chezmoitemplates/Brewfile, never this copy.
-BREWFILE="$STATE/Brewfile"
-
-# The preamble puts the real Homebrew first on PATH, so this is the seam a test
-# uses to point the script at a stub that installs nothing.
-BREW="${DOTFILES_BREW:-brew}"
-
+# BREWFILE and BREW come from the preamble.
 cat >"$BREWFILE" <<'EOF_BREWFILE'
 {{ template "Brewfile" . -}}
 EOF_BREWFILE
@@ -55,7 +47,7 @@ if ! has_command "$BREW"; then
   exit 0
 fi
 
-hash="$(shasum -a 256 "$BREWFILE" | cut -d ' ' -f 1)"
+hash="$(file_hash "$BREWFILE")"
 if hash_unchanged packages "$hash" && [ "$(marker_value packages-status)" = 0 ]; then
   echo "packages: nothing changed since the last successful run"
   exit 0

@@ -22,7 +22,7 @@ KILLALL="${DOTFILES_KILLALL:-killall}"
 # not, this script is change-triggered and would not be retried on its own, so
 # say how to force it.
 if ! has_command "$UV"; then
-  echo "downloads view: uv is not installed yet, skipping. The next \`chezmoi apply\` does not retry this script, so once uv is there run"
+  echo "downloads-view: uv is not installed yet, skipping. The next \`chezmoi apply\` does not retry this script, so once uv is there run"
   echo "  chezmoi state delete-bucket --bucket=entryState && chezmoi apply"
   exit 0
 fi

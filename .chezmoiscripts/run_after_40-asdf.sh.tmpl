@@ -42,7 +42,7 @@ all_installed() {
   done <"$TOOL_VERSIONS"
 }
 
-hash="$(shasum -a 256 "$TOOL_VERSIONS" | cut -d ' ' -f 1)"
+hash="$(file_hash "$TOOL_VERSIONS")"
 if hash_unchanged asdf "$hash" && all_installed; then
   echo "asdf: the pinned versions are installed"
   exit 0
@@ -50,7 +50,7 @@ fi
 
 # A plugin add or an install can fail on a flaky network or a missing build
 # dependency. That must not abort the apply, so the failure is reported and the
-# hash stays unstored, which makes the next sync try again.
+# hash stays unstored, so the next apply installs it.
 status=0
 while read -r plugin version _; do
   case "$plugin" in '' | \#*) continue ;; esac
