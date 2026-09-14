@@ -11,15 +11,6 @@ setup() {
   mkdir -p "$DOTFILES_APPLICATIONS"
 }
 
-# A fake command on PATH, so predicates can be tested without the real thing.
-stub() {
-  local name="$1"
-  mkdir -p "$BATS_TEST_TMPDIR/bin"
-  cat >"$BATS_TEST_TMPDIR/bin/$name"
-  chmod +x "$BATS_TEST_TMPDIR/bin/$name"
-  export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
-}
-
 @test "the preamble creates the state directory" {
   facts="$(render_facts)"
   [ ! -d "$DOTFILES_STATE" ]
@@ -55,10 +46,7 @@ stub() {
 
 @test "has_command finds a command on PATH" {
   facts="$(render_facts)"
-  stub dotfiles-fake <<'EOF'
-#!/bin/sh
-exit 0
-EOF
+  stub dotfiles-fake
   facts_probe "$facts" 'if has_command dotfiles-fake; then echo yes; else echo no; fi'
   [ "$output" = yes ]
 }
@@ -72,7 +60,6 @@ EOF
 @test "default_is is true when the key already has the value" {
   facts="$(render_facts)"
   stub defaults <<'EOF'
-#!/bin/sh
 [ "$1" = read ] && [ "$2" = com.apple.dock ] && [ "$3" = tilesize ] || exit 1
 echo 16
 EOF
@@ -83,7 +70,6 @@ EOF
 @test "default_is is false when the key has another value" {
   facts="$(render_facts)"
   stub defaults <<'EOF'
-#!/bin/sh
 echo 48
 EOF
   facts_probe "$facts" 'if default_is com.apple.dock tilesize 16; then echo yes; else echo no; fi'
@@ -93,7 +79,6 @@ EOF
 @test "default_is is false when the key is unset" {
   facts="$(render_facts)"
   stub defaults <<'EOF'
-#!/bin/sh
 echo "does not exist" >&2
 exit 1
 EOF
