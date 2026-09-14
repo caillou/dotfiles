@@ -1,0 +1,62 @@
+#!/bin/sh
+# Claude Code: installs the CLI with Anthropic's native installer when missing.
+{{ template "facts.sh" . }}
+# The native installer keeps its versions under ~/.local/share/claude and links
+# the current one at ~/.local/bin/claude, a directory the preamble does not put
+# on PATH, so the link is checked directly as well as through PATH. The CLI
+# updates itself from then on, which is why nothing here keeps it current, and
+# why the Homebrew cask is not used: it lags behind the CLI's own releases and
+# casks are never installed on the managed Mac.
+#
+# Nothing below reads the machine facts. Both Macs get the CLI.
+CLAUDE="$HOME/.local/bin/claude"
+
+if has_command claude || [ -x "$CLAUDE" ]; then
+  exit 0
+fi
+
+URL="https://claude.ai/install.sh"
+
+# Every failure below prints one line and exits 0. This script is `run_after_`,
+# so it runs again on the next apply by construction, and a flaky network must
+# not abort the rest of the apply.
+#
+# The installer is downloaded to a file and checked before anything runs it,
+# for the reason spelled out in the Homebrew installer: under `set -eu` a
+# failing command substitution inside an argument does not abort the script and
+# `bash -c ""` exits 0, so `bash -c "$(curl ...)"` turns a captive portal into
+# a silent success. The interpreter and curl are the seams a test points at
+# stubs; the preamble puts Homebrew's bin first on PATH, where a PATH stub
+# cannot outrank it. DOTFILES_BASH is the name the Homebrew installer uses.
+installer="$(mktemp)"
+trap 'rm -f "$installer"' EXIT
+
+give_up() {
+  echo "claude-code: $1. The next \`chezmoi apply\` downloads the installer again."
+  exit 0
+}
+
+if ! "${DOTFILES_CURL:-curl}" -fsSL "$URL" -o "$installer"; then
+  give_up "could not download the installer from $URL, check the network"
+fi
+if [ ! -s "$installer" ]; then
+  give_up "the downloaded installer is empty, check the network"
+fi
+case "$(head -n 1 "$installer")" in
+'#!'*) ;;
+*)
+  give_up "the download is not a shell script (a captive portal page?), connect to a real network"
+  ;;
+esac
+
+echo "claude-code: installing the CLI, which updates itself from then on"
+if ! "${DOTFILES_BASH:-/bin/bash}" "$installer"; then
+  give_up "the installer failed"
+fi
+
+# The installer can exit 0 and still have written nothing usable, so the link
+# it is supposed to create is what says the install worked.
+if [ ! -x "$CLAUDE" ]; then
+  give_up "the installer left no $CLAUDE"
+fi
+exit 0

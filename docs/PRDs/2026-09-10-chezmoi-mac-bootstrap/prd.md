@@ -66,6 +66,7 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 46. As a Mac owner, I want no secret in the repo, so that it can stay public and be cloned anonymously on a fresh Mac.
 47. As the maintainer, I want a README that explains bootstrap, re-sync, adding a package, adding a defaults key and the manual checklist, so that future me doesn't have to re-derive this conversation.
 48. As the maintainer, I want the repo renamed to dotfiles and my current Mac migrated onto it, so that the current Mac is the first machine kept in sync, not an exception.
+49. As a Claude Code user, I want the CLI installed by the bootstrap on both Macs, so that a fresh Mac can run it without a manual step.
 
 ## Implementation Decisions
 
@@ -117,6 +118,13 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 
 - Homebrew asdf (0.16 line, Go). Plugins nodejs and python, global versions pinned in the managed `~/.tool-versions`, legacy version files enabled. A change-triggered script adds plugins and installs the pinned versions; it never runs `asdf set`, because the versions file is managed and would drift. The stray `~/.nvmrc` in the home folder is removed in the migration so the tool-versions file is the only global source.
 - Migration on the current Mac removes the sourcing of the git-clone install; the data directory with installed versions is kept and reused.
+
+### Claude Code
+
+- The CLI is installed with Anthropic's native installer (`curl -fsSL https://claude.ai/install.sh | bash`, downloaded to a file and checked first), on every Mac, managed or not: it is a command-line tool, not a desktop app, and the managed Mac needs it as much as the personal one. The installer keeps its versions under `~/.local/share/claude` and links the current one at `~/.local/bin/claude`.
+- The script is guarded on `claude` being on PATH or that link existing, and does nothing when it is. The CLI updates itself, so nothing keeps it current and no version is pinned anywhere.
+- Not the Homebrew cask: it lags behind the CLI's own releases, and casks are never installed on the managed Mac, so the Brewfile route would not reach the machine that needs it.
+- Claude Code's configuration, skills and memory stay out of scope; this installs the binary only.
 
 ### Hammerspoon
 
@@ -195,7 +203,7 @@ The README is the operating manual and is written together with the repo. Sectio
 
 ### Ordering and idempotency
 
-- Scripts carry explicit attributes: the Homebrew installer is the only `before` script, is guarded by `command -v brew` before it asks for sudo, and does not include the shared preamble (chezmoi keys run-once scripts by content, so a preamble edit would re-run it). Every other script is `after`, so all dotfiles are in place before scripts run. Pure writers (defaults, Dock, Downloads view) use chezmoi's change trigger; every other script runs on every apply and keeps its own hash and outcome in the state directory. Two-digit prefixes fix the order: 10 packages, 20 fish plugins, 21 login shell, 30 GitHub and ssh, 40 asdf, 50 Karabiner build, 60 defaults, 61 Dock, 62 Downloads view, 63 iTerm2, 64 display, 90 report. The exact filenames are fixed in the skeleton issue. Hammerspoon files are applied with the other dotfiles and need no script.
+- Scripts carry explicit attributes: the Homebrew installer is the only `before` script, is guarded by `command -v brew` before it asks for sudo, and does not include the shared preamble (chezmoi keys run-once scripts by content, so a preamble edit would re-run it). Every other script is `after`, so all dotfiles are in place before scripts run. Pure writers (defaults, Dock, Downloads view) use chezmoi's change trigger; every other script runs on every apply and keeps its own hash and outcome in the state directory. Two-digit prefixes fix the order: 10 packages, 20 fish plugins, 21 login shell, 30 GitHub and ssh, 40 asdf, 45 Claude Code, 50 Karabiner build, 60 defaults, 61 Dock, 62 Downloads view, 63 iTerm2, 64 display, 90 report. The exact filenames are fixed in the skeleton issue. Hammerspoon files are applied with the other dotfiles and need no script.
 
 ## Testing Decisions
 
@@ -211,7 +219,7 @@ A good test checks observable behaviour through the module's interface and never
 
 ## Out of Scope
 
-- Claude Code configuration, skills, agents and memory. Memory folders are named after absolute project paths that include the username, so they cannot sync between these two Macs. Claude config gets its own, probably private, repo later.
+- Claude Code configuration, skills, agents and memory; the CLI binary itself is installed by the bootstrap. Memory folders are named after absolute project paths that include the username, so they cannot sync between these two Macs. Claude config gets its own, probably private, repo later.
 - VS Code, which already uses Settings Sync.
 - Syncing project repositories.
 - Secrets management. The repo holds none; ssh keys are per machine; Bitwarden is personal-Mac only and not wired in.

@@ -16,6 +16,7 @@ run_after_20-fish-plugins.sh.tmpl
 run_after_21-login-shell.sh.tmpl
 run_after_30-github-and-ssh.sh.tmpl
 run_after_40-asdf.sh.tmpl
+run_after_45-claude-code.sh.tmpl
 run_after_50-karabiner.sh.tmpl
 run_after_63-iterm2.sh.tmpl
 run_after_64-display.sh.tmpl
@@ -83,6 +84,7 @@ run_onchange_after_62-downloads-view.sh.tmpl' ]
 21-login-shell.sh.tmpl
 30-github-and-ssh.sh.tmpl
 40-asdf.sh.tmpl
+45-claude-code.sh.tmpl
 50-karabiner.sh.tmpl
 60-defaults.sh.tmpl
 61-dock.sh.tmpl

@@ -19,8 +19,8 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply \
 ```
 
 That installs chezmoi, clones this repo, and applies it: Homebrew and packages,
-fish, git and GitHub, asdf, Karabiner, macOS defaults, the Dock, iTerm2, the
-display settings, and the checklist at the end.
+fish, git and GitHub, asdf, the Claude Code CLI, Karabiner, macOS defaults,
+the Dock, iTerm2, the display settings, and the checklist at the end.
 
 The flags are not decoration:
 
@@ -432,6 +432,7 @@ Scripts are numbered because chezmoi runs them in alphabetical order:
 | `20-fish-plugins`, `21-login-shell` | every apply |
 | `30-github-and-ssh` | every apply |
 | `40-asdf` | every apply |
+| `45-claude-code` | every apply |
 | `50-karabiner` | every apply |
 | `60-defaults`, `61-dock`, `62-downloads-view` | on change |
 | `63-iterm2`, `64-display` | every apply |
