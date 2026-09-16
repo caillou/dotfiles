@@ -1,0 +1,115 @@
+#!/bin/sh
+# Quarantine: clears Gatekeeper's flag from the apps Self Service handed out.
+{{ template "facts.sh" . }}
+{{- $groups := list "core" }}
+{{- if .personal }}{{ $groups = append $groups "personal" }}{{ end }}
+{{- if .embedded }}{{ $groups = append $groups "embedded" }}{{ end }}
+# An app that arrives through the employer's portal keeps the quarantine
+# attribute its download got, and nothing ever moves it in the Finder, so
+# macOS runs it from a throwaway copy under /private/var/folders/.../
+# AppTranslocation/<random>/ instead of from /Applications. That copy has a
+# new path on every launch. Hammerspoon's `hs` installer links into it, so the
+# link dies at the next restart; Karabiner and the rest are simply slower to
+# start. The flag is cleared for every app the table names that carries it.
+#
+# Homebrew is the only installer on an unmanaged Mac and clears the flag
+# itself, so this runs on a managed Mac only. The bundles belong to root, so
+# each removal costs sudo; a settled Mac carries no flag and never prompts.
+
+XATTR="${DOTFILES_XATTR:-xattr}"
+PGREP="${DOTFILES_PGREP:-pgrep}"
+PS="${DOTFILES_PS:-ps}"
+OSASCRIPT="${DOTFILES_OSASCRIPT:-osascript}"
+OPEN="${DOTFILES_OPEN:-open}"
+
+if ! is_managed; then
+  exit 0
+fi
+
+# quarantined "Hammerspoon.app"
+quarantined() {
+  "$XATTR" -p com.apple.quarantine "$APPLICATIONS/$1" >/dev/null 2>&1
+}
+
+# clear_flag "Hammerspoon.app" -> 0 when the flag is gone
+clear_flag() {
+  echo "quarantine: clearing Gatekeeper's flag on $1 (sudo password needed)"
+  if sudo "$XATTR" -dr com.apple.quarantine "$APPLICATIONS/$1"; then
+    return 0
+  fi
+  echo "quarantine: could not clear the flag on $1. The next \`chezmoi apply\` tries again."
+  return 1
+}
+
+{{- range .apps }}
+{{- if and (ne .app "") (has .group $groups) }}
+if app_present {{ .app | quote }} && quarantined {{ .app | quote }}; then
+  clear_flag {{ .app | quote }} || true
+fi
+{{- end }}
+{{- end }}
+
+# --- Hammerspoon: the link the translocated copy left behind ----------------
+#
+# `hs` is a symlink into the running Hammerspoon's bundle. Into the throwaway
+# copy, it is dead already or dies at the next restart, and the installer
+# will not replace an entry that exists, so it is removed. A Hammerspoon that
+# is running from the throwaway copy is relaunched: it loads from
+# /Applications, runs init.lua, and the installer writes a link that lasts.
+
+HS_LINK="$HOME/.local/bin/hs"
+
+hammerspoon_pid() {
+  "$PGREP" -x Hammerspoon 2>/dev/null | head -n 1
+}
+
+# running_translocated -> 0 when Hammerspoon runs from an AppTranslocation copy
+running_translocated() {
+  pid="$(hammerspoon_pid)"
+  [ -n "$pid" ] || return 1
+  case "$("$PS" -o comm= -p "$pid" 2>/dev/null)" in
+  */AppTranslocation/*) return 0 ;;
+  esac
+  return 1
+}
+
+# link_is_dead -> 0 when `hs` dangles or points into a throwaway copy
+link_is_dead() {
+  [ -L "$HS_LINK" ] || return 1
+  [ ! -e "$HS_LINK" ] && return 0
+  case "$(readlink "$HS_LINK")" in
+  */AppTranslocation/*) return 0 ;;
+  esac
+  return 1
+}
+
+relaunch=0
+if link_is_dead; then
+  echo "quarantine: removing $HS_LINK, it points into a translocated Hammerspoon"
+  rm -f "$HS_LINK"
+  relaunch=1
+fi
+if running_translocated; then
+  relaunch=1
+fi
+
+if [ "$relaunch" = 1 ] && [ -n "$(hammerspoon_pid)" ] && app_present "Hammerspoon.app"; then
+  if quarantined "Hammerspoon.app"; then
+    echo "quarantine: Hammerspoon is still flagged, so a relaunch would translocate it again. The next \`chezmoi apply\` tries again."
+    exit 0
+  fi
+  echo "quarantine: relaunching Hammerspoon from $APPLICATIONS so it links hs for good"
+  "$OSASCRIPT" -e 'tell application "Hammerspoon" to quit' >/dev/null 2>&1 || true
+  # quit is asynchronous; open before the old process is gone only raises it.
+  tries=0
+  while [ -n "$(hammerspoon_pid)" ] && [ "$tries" -lt 50 ]; do
+    sleep 0.1
+    tries=$((tries + 1))
+  done
+  if [ -n "$(hammerspoon_pid)" ]; then
+    echo "quarantine: Hammerspoon did not quit. Quit it and open it again by hand."
+    exit 0
+  fi
+  "$OPEN" "$APPLICATIONS/Hammerspoon.app" || echo "quarantine: could not open Hammerspoon. Open it by hand."
+fi
+exit 0

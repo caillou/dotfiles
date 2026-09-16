@@ -317,6 +317,12 @@ is two `ln -s` calls and creates no directories, so `dot_local/bin/.keep` and
 `~/.local/share/man/man1` on the first apply, before Hammerspoon ever loads.
 A `.keep` file creates its folder and is never written itself.
 
+A Hammerspoon from the portal runs translocated until its quarantine flag is
+cleared, and its `hs` installer links into the throwaway copy, so the link
+dies at the next restart. The quarantine script removes a link that dangles
+or points into a translocated copy, and relaunches a translocated Hammerspoon
+from `/Applications`, whose `init.lua` then writes a link that lasts.
+
 Hammerspoon shows a dock icon and no menu bar icon. `init.lua` sets both
 through `hs.dockIcon` and `hs.menuIcon`, which write the same preferences as
 the two checkboxes in its settings window. Reload with Shift+Ctrl+backtick,
@@ -362,6 +368,14 @@ out, because a portal of apps cannot hand you a binary like ngrok.
 Apps that arrive later are picked up on the next apply. iTerm2, Karabiner and
 Hammerspoon are each gated on being installed, so the sync neither fails nor
 forgets them.
+
+An app from the portal keeps the quarantine attribute its download got, and
+nothing ever moves it in the Finder, so macOS runs it from a throwaway copy
+under `/private/var/folders/.../AppTranslocation/` with a new path on every
+launch. `run_after_55-quarantine.sh.tmpl` clears the flag on every app the
+table names that carries it, through sudo, since the bundles belong to root.
+A settled Mac carries no flag and is not prompted. The script runs on a
+managed Mac only: Homebrew clears the flag itself on the other kind.
 
 VS Code from the portal comes without the `code` command. The Homebrew cask
 links it into `/opt/homebrew/bin`; a Self Service install links nothing. So
@@ -465,7 +479,7 @@ current list and adding a script means adding one file with a free number:
 | `2x` | shells: fish plugins, the login shell |
 | `3x` | GitHub and ssh |
 | `4x` | developer tools: asdf, the Claude Code CLI |
-| `5x` | keyboard |
+| `5x` | keyboard, and the quarantine flag on apps from the portal |
 | `6x` | macOS settings: defaults, Dock, Downloads view, iTerm2, display |
 | `90` | the report, last |
 
