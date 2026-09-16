@@ -311,6 +311,22 @@ FAKE_APPS='{"apps":[
   says 'signed-out App Store'
 }
 
+# --- the upgrade the apply never runs --------------------------------------
+
+@test "a machine with Homebrew is told how to upgrade its packages" {
+  stub brew
+  report false
+  [ "$status" -eq 0 ]
+  says 'Upgrade the Homebrew packages'
+  says 'brew update && brew upgrade'
+}
+
+@test "a machine without Homebrew has nothing to upgrade" {
+  export DOTFILES_BREW="$BATS_TEST_TMPDIR/bin/no-such-brew"
+  report false
+  refute_says 'brew update && brew upgrade'
+}
+
 # --- the README says the same ----------------------------------------------
 
 @test "the README's manual checklist covers everything the report can print" {
@@ -321,7 +337,8 @@ FAKE_APPS='{"apps":[
     'Karabiner-Elements' 'Hammerspoon' 'Input Monitoring' 'Accessibility' \
     'Login Items & Extensions' 'karabiner/karabiner.json' 'dictation' \
     'tracking speed' 'Automatically adjust brightness' 'Azure DevOps' \
-    'Self Service Portal' 'brew bundle' 'App Store' 'admin password' \
+    'Self Service Portal' 'brew bundle' 'brew update && brew upgrade' \
+    'App Store' 'admin password' \
     'ssh-key-generated' 'pointer-speed-applied' 'auto-brightness-applied' \
     'packages-status'; do
     if [[ "$checklist" != *"$item"* ]]; then

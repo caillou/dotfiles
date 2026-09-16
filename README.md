@@ -404,6 +404,13 @@ On a managed Mac:
 - **Request the missing apps from the Self Service Portal.** The report lists
   them, as described above.
 
+Every apply, while Homebrew is installed:
+
+- **Upgrade the Homebrew packages** with `brew update && brew upgrade` when you
+  want the latest versions. `brew bundle` installs what the Brewfile names and
+  leaves an installed package at whatever version it has, so the apply never
+  upgrades anything.
+
 The apply asks for your admin password more than once by design: the sudo
 ticket expires during the long steps, and the display module reads preferences
 that belong to root until `auto-brightness-applied` records that the flag is

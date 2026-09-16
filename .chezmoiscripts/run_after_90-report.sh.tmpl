@@ -146,6 +146,17 @@ if [ -n "$missing" ]; then
   done
 fi
 {{ end }}
+# --- the upgrade the apply never runs --------------------------------------
+#
+# `brew bundle` installs what the Brewfile names and leaves an installed
+# package at whatever version it has, so newer tools are a separate command.
+
+if has_command "$BREW"; then
+  step 'Upgrade the Homebrew packages when you want the latest versions:'
+  note 'brew update && brew upgrade'
+  note 'The apply installs what is missing and never upgrades what is there.'
+fi
+
 printf '\n'
 printf 'The apply asks for your admin password more than once by design: the\n'
 printf 'sudo ticket expires during the long steps, and the display step reads\n'
