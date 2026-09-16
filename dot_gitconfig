@@ -12,3 +12,5 @@
 # first ICFM clone on a fresh Mac already carries the right address.
 [includeIf "gitdir:~/repos/icfm/"]
 	path = ~/.config/git/icfm.gitconfig
+[push]
+	autoSetupRemote = true
