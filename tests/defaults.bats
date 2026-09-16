@@ -465,33 +465,34 @@ with open(sys.argv[1], "rb") as f:
 
 # --- the wallpaper ---------------------------------------------------------
 
-# wallpaper_store <provider> -> an Index.plist naming that provider
+# wallpaper_store <provider> [image path] -> an Index.plist whose SystemDefault
+# desktop names that provider, with the image path in the nested configuration
+# plist when one is given. SystemDefault is the entry the script reads; macOS
+# 26 carries the older AllSpacesAndDisplays entry beside it, so the fixture
+# writes that one too, holding the same choice, as a 26 store does.
 wallpaper_store() {
   local store="$HOME/Library/Application Support/com.apple.wallpaper/Store"
   mkdir -p "$store"
-  cat >"$store/Index.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>AllSpacesAndDisplays</key>
-  <dict>
-    <key>Desktop</key>
-    <dict>
-      <key>Content</key>
-      <dict>
-        <key>Choices</key>
-        <array>
-          <dict>
-            <key>Provider</key><string>$1</string>
-          </dict>
-        </array>
-      </dict>
-    </dict>
-  </dict>
-</dict>
-</plist>
-EOF
+  /usr/bin/python3 - "$store/Index.plist" "$1" "${2:-}" <<'PY'
+import plistlib
+import sys
+from urllib.parse import quote
+
+target, provider, image = sys.argv[1], sys.argv[2], sys.argv[3]
+choice = {"Provider": provider, "Files": []}
+if image:
+    configuration = {"type": "imageFile", "url": {"relative": "file://" + quote(image)}}
+    choice["Configuration"] = plistlib.dumps(configuration, fmt=plistlib.FMT_BINARY)
+desktop = {"Desktop": {"Content": {"Choices": [choice]}}}
+store = {"SystemDefault": desktop, "AllSpacesAndDisplays": desktop, "Displays": {}, "Spaces": {}}
+with open(target, "wb") as handle:
+    plistlib.dump(store, handle, fmt=plistlib.FMT_BINARY)
+PY
+}
+
+# system_events_calls -> how many times the run asked System Events for the wallpaper
+system_events_calls() {
+  grep -c 'set picture of every desktop' "$LOG" || true
 }
 
 @test "a fresh Mac with no wallpaper store gets the solid black picture" {
@@ -506,16 +507,38 @@ EOF
   apply
   [ "$status" -eq 0 ]
   [[ "$output" == *'already a solid colour'* ]]
-  run grep -c 'set picture of every desktop' "$LOG"
-  [ "$output" = 0 ]
+  [ "$(system_events_calls)" = 0 ]
 }
 
-@test "a desktop on a picture is switched to the solid colour" {
+@test "a desktop on the black picture an earlier apply set is left alone" {
+  wallpaper_store com.apple.wallpaper.choice.image '/System/Library/Desktop Pictures/Solid Colors/Black.png'
+  apply
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'already a solid colour'* ]]
+  [ "$(system_events_calls)" = 0 ]
+}
+
+@test "a desktop on another picture is switched to the black one" {
+  wallpaper_store com.apple.wallpaper.choice.image '/System/Library/Desktop Pictures/macOS Golden Gate.heic'
+  apply
+  [ "$status" -eq 0 ]
+  [ "$(system_events_calls)" = 1 ]
+}
+
+@test "a desktop on a dynamic wallpaper is switched to the black picture" {
   wallpaper_store com.apple.wallpaper.choice.sonoma
   apply
   [ "$status" -eq 0 ]
-  run grep -c 'set picture of every desktop' "$LOG"
-  [ "$output" = 1 ]
+  [ "$(system_events_calls)" = 1 ]
+}
+
+@test "a wallpaper store the script cannot parse is treated as unset" {
+  local store="$HOME/Library/Application Support/com.apple.wallpaper/Store"
+  mkdir -p "$store"
+  printf 'not a plist\n' >"$store/Index.plist"
+  apply
+  [ "$status" -eq 0 ]
+  [ "$(system_events_calls)" = 1 ]
 }
 
 @test "a refused Automation prompt prints the manual step and does not fail" {

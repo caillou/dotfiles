@@ -96,6 +96,11 @@ yet. `entryState` is the bucket chezmoi keys `run_onchange_` scripts in;
 `scriptState` is the one for the run-once Homebrew installer, so deleting it
 instead re-runs the installer and none of the three.
 
+A macOS upgrade is the other reason. The upgrade to 27 put Apple's default
+wallpaper back and emptied the Desktop icon settings, and a change-triggered
+script cannot know that: its text did not change, so it does not run. After a
+major upgrade, delete the bucket and apply, then read the checklist.
+
 `entryState` also holds what chezmoi last wrote to each file, the record behind
 the "has changed since chezmoi last wrote it" prompt. Deleting the bucket
 deletes that too, so the apply right after it rewrites a hand-edited file
@@ -190,6 +195,11 @@ $EDITOR .chezmoitemplates/Brewfile
 or add the line first and let `chezmoi apply` install it. The packages script
 renders the Brewfile, appends the rows for this machine, and runs
 `brew bundle` only when the result's hash changed or the last run failed.
+
+A formula from a third-party tap needs the tap line written as
+`tap "user/repo", trusted: true`. Since Homebrew 6 an untrusted tap is not
+loaded at all, and a fresh Mac has never run `brew trust`, so the trust has
+to travel with the Brewfile.
 
 Casks and App Store apps are not in the Brewfile. They are rows in
 `.chezmoidata/apps.yaml`, because two scripts read them:

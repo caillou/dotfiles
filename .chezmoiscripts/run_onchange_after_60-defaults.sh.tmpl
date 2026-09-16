@@ -206,19 +206,48 @@ done
 # --- Wallpaper -------------------------------------------------------------
 
 # The wallpaper store records which provider drew the desktop, and reading it
-# needs no permission. A solid colour is already what we want, so the System
-# Events call (one Automation consent prompt on a fresh Mac) is skipped.
+# needs no permission. Two states are already what we want: a solid colour
+# picked by hand in System Settings, and the black picture an earlier apply set
+# through System Events, which the store files as an image choice. Either one
+# skips the System Events call and its Automation consent prompt.
+#
+# The entry read is SystemDefault. macOS 26 writes it next to the older
+# AllSpacesAndDisplays entry, and macOS 27 dropped the desktop from the latter,
+# so SystemDefault is the one both versions carry. The image's file URL sits in
+# a nested binary plist that plutil cannot reach into, hence the system python.
 WALLPAPER_INDEX="$HOME/Library/Application Support/com.apple.wallpaper/Store/Index.plist"
+WALLPAPER_BLACK="/System/Library/Desktop Pictures/Solid Colors/Black.png"
 
-wallpaper_provider() {
-  [ -f "$WALLPAPER_INDEX" ] || return 0
-  plutil -extract AllSpacesAndDisplays.Desktop.Content.Choices.0.Provider raw \
-    -o - -- "$WALLPAPER_INDEX" 2>/dev/null || true
+# wallpaper_settled -> 0 when the store records a solid colour or the black picture
+wallpaper_settled() {
+  [ -f "$WALLPAPER_INDEX" ] && [ -x "$PYTHON" ] || return 1
+  "$PYTHON" - "$WALLPAPER_INDEX" "$WALLPAPER_BLACK" <<'PY'
+import plistlib
+import sys
+from urllib.parse import unquote, urlparse
+
+# A store this cannot read, or a shape it does not know, is "not settled": the
+# fallback below is the write that has always been made.
+try:
+    with open(sys.argv[1], "rb") as handle:
+        store = plistlib.load(handle)
+    choice = store["SystemDefault"]["Desktop"]["Content"]["Choices"][0]
+    if choice["Provider"] == "com.apple.wallpaper.choice.color":
+        sys.exit(0)
+    if choice["Provider"] == "com.apple.wallpaper.choice.image":
+        configuration = plistlib.loads(choice["Configuration"])
+        path = unquote(urlparse(configuration["url"]["relative"]).path)
+        if path == sys.argv[2]:
+            sys.exit(0)
+except Exception:  # noqa: BLE001 -- any failure means "write it"
+    pass
+sys.exit(1)
+PY
 }
 
-if [ "$(wallpaper_provider)" = com.apple.wallpaper.choice.color ]; then
+if wallpaper_settled; then
   echo "defaults: the wallpaper is already a solid colour, leaving it alone"
-elif osascript -e 'tell application "System Events" to set picture of every desktop to "/System/Library/Desktop Pictures/Solid Colors/Black.png"' >/dev/null 2>&1; then
+elif osascript -e "tell application \"System Events\" to set picture of every desktop to \"$WALLPAPER_BLACK\"" >/dev/null 2>&1; then
   echo "defaults: wallpaper set to solid black"
 else
   echo "defaults: could not set the wallpaper. Allow this terminal to control"
