@@ -84,6 +84,10 @@ Re-read with `defaults read <domain> <key>`; `-g` is NSGlobalDomain.
 
 Input source: ABC keyboard layout only. Locale en_CH, languages en-CH fr-CH de-CH it-CH, centimetres (not written by the setup).
 
+### Input sources (`com.apple.HIToolbox`, `com.apple.TextInputMenu`; captured 2026-09-16)
+
+`AppleEnabledInputSources` is one array: the ABC keyboard layout (`KeyboardLayout ID` 252) and two `Non Keyboard Input Method` entries macOS registers for itself, `com.apple.CharacterPaletteIM` (emoji palette) and `com.apple.inputmethod.ironwood` (dictation). A Mac where press-and-hold has run once also lists `com.apple.PressAndHold`; the setup leaves it out, as the reference Mac has, and macOS re-registers it when needed. `AppleSelectedInputSources` and `AppleInputSourceHistory` hold the ABC entry alone; `AppleCurrentKeyboardLayoutInputSourceID` is `com.apple.keylayout.ABC`. The elements are dictionaries, written as XML fragments to `defaults write -array`. `com.apple.TextInputMenu visible 0` hides the input menu in the menu bar (System Settings > Keyboard > Input Sources > Edit > Show Input menu in menu bar); `TextInputMenuAgent` draws it and is restarted with the other UI processes.
+
 ### Trackpad (`com.apple.AppleMultitouchTrackpad`; same keys in `com.apple.driver.AppleBluetoothMultitouch.trackpad`)
 
 Clicking 1; DragLock 0; Dragging 0; TrackpadThreeFingerDrag 0; TrackpadRightClick 1; TrackpadCornerSecondaryClick 0; TrackpadThreeFingerTapGesture 0; TrackpadTwoFingerDoubleTapGesture 1; TrackpadPinch 1; TrackpadRotate 1; TrackpadScroll 1; TrackpadHorizScroll 1; TrackpadMomentumScroll 1; TrackpadHandResting 1; TrackpadThreeFingerHorizSwipeGesture 2; TrackpadThreeFingerVertSwipeGesture 2; TrackpadFourFingerHorizSwipeGesture 2; TrackpadFourFingerVertSwipeGesture 2; TrackpadFourFingerPinchGesture 2; TrackpadFiveFingerPinchGesture 2; TrackpadTwoFingerFromRightEdgeSwipeGesture 3; USBMouseStopsTrackpad 0. Built-in only: ForceSuppressed 1; ActuateDetents 0 (silent clicking); FirstClickThreshold 1; SecondClickThreshold 1.

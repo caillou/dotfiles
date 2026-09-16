@@ -154,7 +154,7 @@ at() {
   first_write="$(grep -n -m 1 '^defaults write ' "$SCRIPT" | cut -d : -f 1)"
   last_write="$(grep -n '^defaults ' "$SCRIPT" | tail -n 1 | cut -d : -f 1)"
   activate="$(at "$SCRIPT" '"$ACTIVATE_SETTINGS" -u')"
-  restart="$(at "$SCRIPT" 'killall Finder Dock SystemUIServer')"
+  restart="$(at "$SCRIPT" 'killall Finder Dock SystemUIServer TextInputMenuAgent')"
 
   [ "$quit" -lt "$first_write" ]
   [ "$last_write" -lt "$activate" ]
@@ -168,7 +168,7 @@ at() {
   first_write="$(grep -n -m 1 '^defaults write ' "$LOG" | cut -d : -f 1)"
   last_write="$(grep -n '^defaults ' "$LOG" | tail -n 1 | cut -d : -f 1)"
   activate="$(at "$LOG" 'activateSettings -u')"
-  restart="$(at "$LOG" 'killall Finder Dock SystemUIServer')"
+  restart="$(at "$LOG" 'killall Finder Dock SystemUIServer TextInputMenuAgent')"
 
   [ "$quit" = 1 ]
   [ "$quit" -lt "$first_write" ]
@@ -206,6 +206,18 @@ defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
 defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
 defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
 defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
+EOF
+}
+
+@test "input sources: the ABC layout alone, and no input menu in the menu bar" {
+  applied
+  [ "$status" -eq 0 ]
+  writes_all <<'EOF'
+defaults write com.apple.HIToolbox AppleEnabledInputSources -array <dict><key>InputSourceKind</key><string>Keyboard Layout</string><key>KeyboardLayout ID</key><integer>252</integer><key>KeyboardLayout Name</key><string>ABC</string></dict> <dict><key>Bundle ID</key><string>com.apple.CharacterPaletteIM</string><key>InputSourceKind</key><string>Non Keyboard Input Method</string></dict> <dict><key>Bundle ID</key><string>com.apple.inputmethod.ironwood</string><key>InputSourceKind</key><string>Non Keyboard Input Method</string></dict>
+defaults write com.apple.HIToolbox AppleSelectedInputSources -array <dict><key>InputSourceKind</key><string>Keyboard Layout</string><key>KeyboardLayout ID</key><integer>252</integer><key>KeyboardLayout Name</key><string>ABC</string></dict>
+defaults write com.apple.HIToolbox AppleInputSourceHistory -array <dict><key>InputSourceKind</key><string>Keyboard Layout</string><key>KeyboardLayout ID</key><integer>252</integer><key>KeyboardLayout Name</key><string>ABC</string></dict>
+defaults write com.apple.HIToolbox AppleCurrentKeyboardLayoutInputSourceID -string com.apple.keylayout.ABC
+defaults write com.apple.TextInputMenu visible -bool false
 EOF
 }
 
@@ -442,7 +454,7 @@ with open(sys.argv[1], "rb") as f:
   [ "$status" -eq 0 ]
   [[ "$output" == *'skipping the dictation shortcut'* ]]
   [ ! -f "$IMPORTED" ]
-  logged 'killall Finder Dock SystemUIServer'
+  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent'
 }
 
 # --- the wallpaper ---------------------------------------------------------
@@ -505,7 +517,7 @@ EOF
   apply
   [ "$status" -eq 0 ]
   [[ "$output" == *'could not set the wallpaper'* ]]
-  logged 'killall Finder Dock SystemUIServer'
+  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent'
 }
 
 # --- power -----------------------------------------------------------------
@@ -553,7 +565,7 @@ AC Power:
   apply
   [ "$status" -eq 0 ]
   [[ "$output" == *'System Settings > Battery'* ]]
-  logged 'killall Finder Dock SystemUIServer'
+  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent'
 }
 
 # --- pointer speed read-back -----------------------------------------------

@@ -240,8 +240,8 @@ modules are the two catalogues still maintained in 2026. The mathiasbynens
 script is a catalogue only; it has not been updated since 2020.
 
 The setting goes in `.chezmoiscripts/run_onchange_after_60-defaults.sh.tmpl`,
-in the section for its domain (keyboard, scrolling, trackpad, screenshots,
-Finder, window manager, Dock, wallpaper, dictation, power). Write it with the
+in the section for its domain (keyboard, input sources, scrolling, trackpad,
+screenshots, Finder, window manager, Dock, wallpaper, dictation, power). Write it with the
 type macOS stored, which the diff shows you: `-bool`, `-int`, `-float`,
 `-string`.
 
@@ -249,8 +249,8 @@ Order matters in that script. It quits System Settings first, because System
 Settings holds its panes in memory and writes them back on quit, undoing
 everything. Then the writes. Then `activateSettings -u`, the private tool that
 makes keyboard, trackpad and pointer values take effect without logging out.
-Then `killall Finder Dock SystemUIServer`, the three processes that cache what
-was written. If your key belongs to some other process, kill it there too.
+Then `killall Finder Dock SystemUIServer TextInputMenuAgent`, the four
+processes that cache what was written. If your key belongs to some other process, kill it there too.
 
 Nested values that `defaults write` cannot express go through
 `defaults export`, an edit, and `defaults import` on that domain. The dictation
