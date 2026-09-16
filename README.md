@@ -523,8 +523,12 @@ other.
 
 Nothing there touches the machine it runs on: `HOME` and the XDG variables
 point into a temporary tree, and brew, dockutil, asdf, fish and Finder are
-stubs. `lefthook install` runs the same four on commit, and CI runs them on a
-macOS runner plus a dry-run apply.
+stubs. The same four run on every commit through lefthook, and CI runs them on
+a macOS runner plus a dry-run apply. The pre-commit hook is not something a
+clone carries: it lives in the checkout's `.git`, and chezmoi's built-in git
+creates no hooks folder at all. Script 11 installs it on every apply where it
+is missing, so a bootstrapped Mac commits through the hook from the first
+sync on.
 
 ## History
 

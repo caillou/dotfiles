@@ -1,0 +1,42 @@
+#!/bin/sh
+# Git hooks: wires lefthook's pre-commit hook into this checkout.
+{{ template "facts.sh" . }}
+# lefthook.yml runs the test suite on every commit, but a git hook lives in the
+# checkout's own .git, which no clone carries: chezmoi's built-in git, the one
+# the bootstrap clones with, does not even create the hooks folder. So the
+# apply installs it. `lefthook install` is idempotent and writes only into the
+# checkout, and the packages script has installed lefthook itself by now.
+SOURCE={{ .chezmoi.sourceDir | quote }}
+
+# The seams a test points at stubs, so no test touches the repo's own hooks.
+LEFTHOOK="${DOTFILES_LEFTHOOK:-lefthook}"
+GIT="${DOTFILES_GIT:-git}"
+
+# CI applies from a checkout too, but a source directory that is not a
+# repository has nowhere to put a hook.
+if ! "$GIT" -C "$SOURCE" rev-parse --git-dir >/dev/null 2>&1; then
+  echo "git-hooks: $SOURCE is not a git checkout, nothing to install"
+  exit 0
+fi
+
+if ! has_command "$LEFTHOOK"; then
+  echo "git-hooks: lefthook is not installed, skipping. The next \`chezmoi apply\` installs the hook."
+  exit 0
+fi
+
+# Quiet on the common path: a hook lefthook wrote is left alone. git resolves
+# the hooks directory, so a core.hooksPath set elsewhere is honoured too.
+hook="$("$GIT" -C "$SOURCE" rev-parse --git-path hooks/pre-commit)"
+case "$hook" in
+/*) ;;
+*) hook="$SOURCE/$hook" ;;
+esac
+if [ -f "$hook" ] && grep -q lefthook "$hook"; then
+  exit 0
+fi
+
+echo "git-hooks: installing lefthook's pre-commit hook into $SOURCE"
+if ! (cd "$SOURCE" && "$LEFTHOOK" install); then
+  echo "git-hooks: lefthook install failed. The next \`chezmoi apply\` tries again."
+fi
+exit 0
