@@ -25,8 +25,16 @@ PYTHON="${DOTFILES_PYTHON:-/usr/bin/python3}"
 POINTER_SPEED=0.6875
 POINTER_HID=45056
 
+# Up to macOS 26 hidutil printed the one value; since macOS 27 it prints a
+# table with a row per HID device, some of them "(null)". Either way this is
+# the distinct numeric values, space-separated, so the read-back compares one
+# number when every device agrees and shows the disagreement when they do not.
 pointer_speed_now() {
-  hidutil property --get HIDPointerAcceleration 2>/dev/null || true
+  hidutil property --get HIDPointerAcceleration 2>/dev/null | awk '
+    NF == 1 && $1 ~ /^[0-9]+$/ { seen[$1] = 1; next }
+    $2 == "HIDPointerAcceleration" && $3 ~ /^[0-9]+$/ { seen[$3] = 1 }
+    END { for (v in seen) print v }
+  ' | sort -n | paste -s -d " " -
 }
 
 # --- System Settings -------------------------------------------------------

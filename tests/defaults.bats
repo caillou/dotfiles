@@ -67,7 +67,13 @@ EOF
 [ -z "${OSASCRIPT_FAILS:-}" ] || exit 1
 EOF
   stub hidutil '$DEFAULTS_LOG' <<'EOF'
-[ -z "${POINTER_LIVE-unset}" ] || echo "${POINTER_LIVE:-45056}"
+# POINTER_LIVE is the one value hidutil printed up to macOS 26; POINTER_TABLE
+# is the per-device table it prints since macOS 27, verbatim.
+if [ -n "${POINTER_TABLE:-}" ]; then
+  printf '%s\n' "$POINTER_TABLE"
+else
+  [ -z "${POINTER_LIVE-unset}" ] || echo "${POINTER_LIVE:-45056}"
+fi
 EOF
   stub pmset '$DEFAULTS_LOG' <<'EOF'
 [ "$1" != -g ] || printf '%s\n' "$PMSET_STATE"
@@ -604,6 +610,29 @@ AC Power:
   apply
   [ "$status" -eq 0 ]
   [ ! -f "$DOTFILES_STATE/pointer-speed-applied" ]
+}
+
+@test "the per-device table of macOS 27 reads as one value when every device agrees" {
+  export POINTER_TABLE="RegistryID  Key                   Value
+100000ba7   HIDPointerAcceleration   45056
+100000f74   HIDPointerAcceleration   (null)
+100000b2f   HIDPointerAcceleration   45056"
+  apply
+  [ "$status" -eq 0 ]
+  [ "$(cat "$DOTFILES_STATE/pointer-speed-applied")" = 0.6875 ]
+  [[ "$output" != *'pointer speed is'* ]]
+}
+
+@test "devices that disagree are all named in the warning, without the table" {
+  export POINTER_TABLE="RegistryID  Key                   Value
+100000ba7   HIDPointerAcceleration   65536
+100000f74   HIDPointerAcceleration   (null)
+100000b2f   HIDPointerAcceleration   45056"
+  apply
+  [ "$status" -eq 0 ]
+  [ ! -f "$DOTFILES_STATE/pointer-speed-applied" ]
+  [[ "$output" == *'pointer speed is 45056 65536, wanted 45056'* ]]
+  [[ "$output" != *'RegistryID'* ]]
 }
 
 @test "a machine where hidutil reports nothing does not fail the apply" {
