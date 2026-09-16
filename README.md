@@ -311,6 +311,12 @@ loop; Shift+Ctrl+backtick reloads by hand.
 
 `~/.hammerspoon/Spoons` is never managed. Hammerspoon writes there at runtime.
 
+`init.lua` installs the `hs` command line tool into `~/.local`. The installer
+is two `ln -s` calls and creates no directories, so `dot_local/bin/.keep` and
+`dot_local/share/man/man1/.keep` make chezmoi create `~/.local/bin` and
+`~/.local/share/man/man1` on the first apply, before Hammerspoon ever loads.
+A `.keep` file creates its folder and is never written itself.
+
 ## iTerm2
 
 iTerm2 loads its preferences from `.iterm2/` in this repo instead of
@@ -351,6 +357,13 @@ out, because a portal of apps cannot hand you a binary like ngrok.
 Apps that arrive later are picked up on the next apply. iTerm2, Karabiner and
 Hammerspoon are each gated on being installed, so the sync neither fails nor
 forgets them.
+
+VS Code from the portal comes without the `code` command. The Homebrew cask
+links it into `/opt/homebrew/bin`; a Self Service install links nothing. So
+`dot_local/bin/symlink_code.tmpl` links `~/.local/bin/code` to the launcher
+inside the app bundle. The template renders empty while the app is missing,
+and chezmoi creates nothing from an empty symlink, so a Mac without VS Code
+carries no dangling link and the apply after the app arrives adds it.
 
 ## Manual checklist
 
@@ -430,6 +443,7 @@ off. After that it does not prompt.
 .karabiner/                karabiner.ts source for the keyboard rules
 dot_config/private_fish/   fish; `private_` means mode 0700
 dot_hammerspoon/           init.lua, windows.lua, status-message.lua
+dot_local/                 the `code` symlink and the folders the `hs` installer needs
 dot_*                      the rest of the home directory, `dot_` standing in for the leading dot
 docs/PRDs/                 the PRD and the research behind all of this
 tests/                     bats suites, the Python unit tests, shellcheck and the secrets check

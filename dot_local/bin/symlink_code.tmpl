@@ -1,0 +1,3 @@
+{{- /* VS Code ships the `code` command inside its bundle. The Homebrew cask links it into /opt/homebrew/bin; an app handed out by Self Service gets no link at all, so this one stands in. It renders empty, and chezmoi then creates nothing, while the app is missing. */ -}}
+{{- $app := printf "%s/Visual Studio Code.app" (env "DOTFILES_APPLICATIONS" | default "/Applications") -}}
+{{- if stat $app }}{{ $app }}/Contents/Resources/app/bin/code{{ end -}}
