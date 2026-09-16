@@ -7,6 +7,14 @@
 require("hs.ipc")
 hs.ipc.cliInstall(os.getenv("HOME") .. "/.local")
 
+-- Hammerspoon lives in the Dock, not the menu bar. Both calls write the
+-- preference behind the settings checkboxes, so the window agrees, and both
+-- are no-ops once the state is set. Without the menu: Shift+Ctrl+backtick
+-- reloads, `hs -c "hs.openConsole()"` or a click on the dock icon opens the
+-- console.
+hs.dockIcon(true)
+hs.menuIcon(false)
+
 -- Use Shift+Control+` to reload Hammerspoon config
 hs.hotkey.bind({ "shift", "ctrl" }, "`", nil, function()
   hs.reload()

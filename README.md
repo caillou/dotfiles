@@ -317,6 +317,11 @@ is two `ln -s` calls and creates no directories, so `dot_local/bin/.keep` and
 `~/.local/share/man/man1` on the first apply, before Hammerspoon ever loads.
 A `.keep` file creates its folder and is never written itself.
 
+Hammerspoon shows a dock icon and no menu bar icon. `init.lua` sets both
+through `hs.dockIcon` and `hs.menuIcon`, which write the same preferences as
+the two checkboxes in its settings window. Reload with Shift+Ctrl+backtick,
+open the console by clicking the dock icon or with `hs -c "hs.openConsole()"`.
+
 ## iTerm2
 
 iTerm2 loads its preferences from `.iterm2/` in this repo instead of

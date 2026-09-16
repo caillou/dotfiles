@@ -145,6 +145,11 @@ managed_targets() {
   grep -qF 'hs.alert.show(' "$INIT"
 }
 
+@test "init.lua puts Hammerspoon in the Dock and takes it out of the menu bar" {
+  grep -qF 'hs.dockIcon(true)' "$INIT"
+  grep -qF 'hs.menuIcon(false)' "$INIT"
+}
+
 @test "init.lua watches the config folder once and requires the windows module" {
   run grep -c 'hs\.pathwatcher\.new' "$INIT"
   [ "$output" = '1' ]
