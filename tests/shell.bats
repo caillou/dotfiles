@@ -30,7 +30,6 @@ managed_shell_files() {
 $FISH_SOURCE/config.fish
 $FISH_SOURCE/conf.d/00-settings.fish
 $FISH_SOURCE/conf.d/fish_frozen_theme.fish
-$FISH_SOURCE/functions/amph.fish
 $FISH_SOURCE/functions/karabinerRestart.fish
 $FISH_SOURCE/fish_plugins
 $REPO_ROOT/dot_zprofile
@@ -47,7 +46,6 @@ managed_shell_targets() {
 .config/fish/config.fish
 .config/fish/conf.d/00-settings.fish
 .config/fish/conf.d/fish_frozen_theme.fish
-.config/fish/functions/amph.fish
 .config/fish/functions/karabinerRestart.fish
 .config/fish/fish_plugins
 .zprofile
@@ -173,7 +171,6 @@ jorgebucaran/fisher' ]
   command -v fish >/dev/null || skip "fish is not installed"
   for file in "$FISH_SOURCE/config.fish" "$FISH_SOURCE/conf.d/00-settings.fish" \
     "$FISH_SOURCE/conf.d/fish_frozen_theme.fish" \
-    "$FISH_SOURCE/functions/amph.fish" \
     "$FISH_SOURCE/functions/karabinerRestart.fish"; do
     run fish --no-execute "$file"
     [ "$status" -eq 0 ]
