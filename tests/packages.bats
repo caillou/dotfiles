@@ -57,7 +57,7 @@ refute_brewfile_has() {
   for managed in true false; do
     packages "$managed"
     [ "$status" -eq 0 ]
-    brewfile_has 'tap "jesseduffield/lazygit"'
+    brewfile_has 'tap "jesseduffield/lazygit", trusted: true'
     brewfile_has 'brew "chezmoi"'
     brewfile_has 'brew "fish"'
     brewfile_has 'brew "mas"'
@@ -84,14 +84,14 @@ cask "font-anonymice-nerd-font"' ]
 @test "the personal group appears only when its flag is set" {
   stub_brew
   packages false false false
-  refute_brewfile_has 'tap "gbevin/tools"'
+  refute_brewfile_has 'tap "gbevin/tools", trusted: true'
   refute_brewfile_has 'brew "gbevin/tools/sendmidi"'
   refute_brewfile_has 'brew "figlet"'
   refute_brewfile_has 'cask "spotify"'
   refute_brewfile_has 'mas "WhatsApp", id: 310633997'
 
   packages false true false
-  brewfile_has 'tap "gbevin/tools"'
+  brewfile_has 'tap "gbevin/tools", trusted: true'
   brewfile_has 'brew "gbevin/tools/sendmidi"'
   brewfile_has 'brew "figlet"'
   brewfile_has 'cask "spotify"'

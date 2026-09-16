@@ -12,7 +12,10 @@
 # The list is the classification in
 # docs/PRDs/2026-09-10-chezmoi-mac-bootstrap/research-notes.md section 9.
 
-tap "jesseduffield/lazygit"
+# Taps carry `trusted: true`: since Homebrew 6 a tap outside Homebrew's own
+# is not loaded until it is trusted, and a fresh Mac has never run
+# `brew trust`. The option records the trust with the tap line itself.
+tap "jesseduffield/lazygit", trusted: true
 
 # Core: every Mac.
 brew "fish"
@@ -58,7 +61,7 @@ cask "font-ibm-plex-sans"
 cask "font-anonymice-nerd-font"
 {{ if .personal }}
 # Personal.
-tap "gbevin/tools"
+tap "gbevin/tools", trusted: true
 brew "figlet"
 brew "lolcat"
 brew "viu"
