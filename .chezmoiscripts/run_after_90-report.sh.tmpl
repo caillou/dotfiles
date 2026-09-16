@@ -39,10 +39,11 @@ printf '\n=== What is left to do by hand on this Mac ===\n'
 # installed and are repeated on every apply.
 
 if app_present 'Karabiner-Elements.app'; then
-  step 'Approve Karabiner-Elements in System Settings > Privacy & Security:'
-  note 'Input Monitoring for Karabiner-Elements, karabiner_grabber and'
-  note 'karabiner_observer, Accessibility for Karabiner-Elements, and the'
-  note 'driver extension under General > Login Items & Extensions.'
+  step 'Approve Karabiner-Elements in System Settings:'
+  note 'Privacy & Security > Input Monitoring for Karabiner-Core-Service,'
+  note 'Accessibility for Karabiner-Elements, and under General > Login Items'
+  note '& Extensions the two background services (Karabiner-Elements'
+  note 'Privileged Daemons and Non-Privileged Agents) and the driver extension.'
 
   # Karabiner writes its config file on first launch and the build step edits
   # that file, so an installed-but-never-launched Karabiner is a manual step.

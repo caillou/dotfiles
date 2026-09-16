@@ -402,10 +402,13 @@ you. The full list is here.
 
 Every apply, while the app is installed:
 
-- **Approve Karabiner-Elements** in System Settings > Privacy & Security:
-  Input Monitoring for Karabiner-Elements, `karabiner_grabber` and
-  `karabiner_observer`; Accessibility for Karabiner-Elements; and the driver
-  extension under General > Login Items & Extensions. Whether an approval was
+- **Approve Karabiner-Elements** in System Settings: Privacy & Security >
+  Input Monitoring for Karabiner-Core-Service and Accessibility for
+  Karabiner-Elements; and under General > Login Items & Extensions the two
+  background services, "Karabiner-Elements Privileged Daemons" and
+  "Karabiner-Elements Non-Privileged Agents", plus the driver extension.
+  Those are the names since Karabiner 15; older releases asked for
+  `karabiner_grabber` and `karabiner_observer` instead. Whether an approval was
   already given lives in the TCC database, which no script may read, so this is
   printed as long as the app is there.
 - **Approve Hammerspoon** in the same pane: Accessibility, plus Input
