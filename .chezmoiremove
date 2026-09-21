@@ -1,3 +1,4 @@
 # Targets a past commit wrote into the home directory and later dropped.
 # chezmoi never deletes a file it merely stopped managing; a line here does.
 .config/fish/functions/amph.fish
+.config/fish/conf.d/pure_git_branch_only.fish
