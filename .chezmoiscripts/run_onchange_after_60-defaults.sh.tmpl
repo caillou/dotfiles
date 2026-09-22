@@ -170,6 +170,38 @@ defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
 defaults write com.apple.finder DesktopViewSettings -dict-add IconViewSettings \
   '<dict><key>arrangeBy</key><string>kind</string><key>iconSize</key><real>16</real><key>gridSpacing</key><real>100</real><key>textSize</key><real>14</real><key>labelOnBottom</key><false/></dict>'
 
+# --- Safari ----------------------------------------------------------------
+
+# Safari is sandboxed: its preferences live in its container, and `defaults`
+# reaches them only when the terminal running this has Full Disk Access.
+# Without it the write lands in ~/Library/Preferences, which Safari ignores,
+# and still reports success, so the container is checked first and the
+# settings are skipped with a message when it is not readable. The
+# SandboxBroker domain sits outside the container and is written either way.
+#
+# Like System Settings, Safari writes its preferences back when it quits, so
+# it is quit before the writes. `is running` keeps AppleScript from launching
+# it just to quit it. Safari restores the closed tabs on its next launch, and
+# nothing needs restarting: the settings apply then.
+SAFARI_PREFS="$HOME/Library/Containers/com.apple.Safari/Data/Library/Preferences"
+if ls "$SAFARI_PREFS" >/dev/null 2>&1; then
+  if ! osascript -e 'if application "Safari" is running then tell application "Safari" to quit' >/dev/null 2>&1; then
+    echo "defaults: Safari could not be quit; if the Develop menu or the full URL"
+    echo "defaults: are missing after it restarts, quit it and apply again."
+  fi
+  # The Develop menu, plus the two WebKit keys the toggle sets for the inspector.
+  defaults write com.apple.Safari IncludeDevelopMenu -bool true
+  defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true
+  defaults write com.apple.Safari "WebKitPreferences.developerExtrasEnabled" -bool true
+  # The full URL in the address bar instead of the site name.
+  defaults write com.apple.Safari ShowFullURLInSmartSearchField -bool true
+else
+  echo "defaults: Safari's preferences are not readable, so its settings were skipped."
+  echo "defaults: Give this terminal Full Disk Access (System Settings > Privacy &"
+  echo "defaults: Security > Full Disk Access) and apply again."
+fi
+defaults write com.apple.Safari.SandboxBroker ShowDevelopMenu -bool true
+
 # --- Window manager --------------------------------------------------------
 
 # StandardHideDesktopIcons hides the desktop items in normal mode; HideDesktop

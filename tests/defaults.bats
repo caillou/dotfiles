@@ -34,6 +34,11 @@ machine() {
   IMPORTED="$DEFAULTS_IMPORTED"
   hotkeys_domain >"$DEFAULTS_EXPORTED"
 
+  # Safari's container is readable, as it is when the terminal has Full Disk
+  # Access; the test for the other case removes it.
+  export SAFARI_PREFS="$HOME/Library/Containers/com.apple.Safari/Data/Library/Preferences"
+  mkdir -p "$SAFARI_PREFS"
+
   # What `pmset -g custom` reports. This machine needs all four values
   # changed; the tests that care about the comparison override it.
   export PMSET_STATE="Battery Power:
@@ -357,6 +362,42 @@ EOF
   [ "$body" = '<dict><key>arrangeBy</key><string>kind</string><key>gridSpacing</key><real>100</real><key>iconSize</key><real>16</real><key>labelOnBottom</key><false/><key>textSize</key><real>14</real></dict>' ]
 }
 
+@test "safari: quit first, then the Develop menu and the full URL" {
+  applied
+  [ "$status" -eq 0 ]
+  logged 'osascript -e if application "Safari" is running then tell application "Safari" to quit'
+  writes_all <<'EOF'
+defaults write com.apple.Safari IncludeDevelopMenu -bool true
+defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true
+defaults write com.apple.Safari WebKitPreferences.developerExtrasEnabled -bool true
+defaults write com.apple.Safari ShowFullURLInSmartSearchField -bool true
+defaults write com.apple.Safari.SandboxBroker ShowDevelopMenu -bool true
+EOF
+  quit="$(at "$LOG" 'tell application "Safari" to quit')"
+  first="$(at "$LOG" 'defaults write com.apple.Safari ')"
+  [ "$quit" -lt "$first" ]
+  [[ "$output" != *'Full Disk Access'* ]]
+}
+
+@test "safari: without Full Disk Access the container writes are skipped with the manual step" {
+  rm -r "$SAFARI_PREFS"
+  apply
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'Full Disk Access'* ]]
+  ! grep -q '^defaults write com.apple.Safari ' "$LOG"
+  ! grep -q 'tell application "Safari" to quit' "$LOG"
+  logged 'defaults write com.apple.Safari.SandboxBroker ShowDevelopMenu -bool true'
+  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent'
+}
+
+@test "safari: a quit that fails prints the manual step and the writes still happen" {
+  export OSASCRIPT_FAILS=1
+  apply
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'Safari could not be quit'* ]]
+  logged 'defaults write com.apple.Safari ShowFullURLInSmartSearchField -bool true'
+}
+
 @test "window manager" {
   applied
   [ "$status" -eq 0 ]
@@ -414,7 +455,7 @@ EOF
 
 @test "what the notes mark informational or dropped is never written" {
   applied
-  run grep -E 'AppleBluetoothMultitouch.mouse|doubleClickThreshold|LSQuarantine|com.apple.Safari|universalaccess|messageshelper|AppleInterfaceStyle|AppleShowScrollBars|AppleLocale' "$LOG"
+  run grep -E 'AppleBluetoothMultitouch.mouse|doubleClickThreshold|LSQuarantine|universalaccess|messageshelper|AppleInterfaceStyle|AppleShowScrollBars|AppleLocale' "$LOG"
   [ "$status" -ne 0 ]
 }
 

@@ -53,6 +53,14 @@ settled Mac does not prompt for it. `gh` opens a browser window to
 log in to GitHub, and macOS asks once for Automation consent when the wallpaper
 is set through System Events.
 
+The Safari settings (the Develop menu and the full URL in the address bar) need
+one thing macOS never prompts for: Full Disk Access for the terminal running
+the apply. Safari is sandboxed, and without it `defaults` writes to a file
+Safari ignores while reporting success. The defaults script checks, skips the
+Safari section with a message, and writes it on the next apply once the
+terminal has been added under System Settings > Privacy & Security > Full Disk
+Access. It quits Safari first, which restores its tabs on the next launch.
+
 ### How long
 
 Two steps take almost all of the time and print almost nothing while they work:
@@ -251,7 +259,7 @@ script is a catalogue only; it has not been updated since 2020.
 
 The setting goes in `.chezmoiscripts/run_onchange_after_60-defaults.sh.tmpl`,
 in the section for its domain (keyboard, input sources, scrolling, trackpad,
-screenshots, Finder, window manager, Dock, wallpaper, dictation, power). Write it with the
+screenshots, Finder, Safari, window manager, Dock, wallpaper, dictation, power). Write it with the
 type macOS stored, which the diff shows you: `-bool`, `-int`, `-float`,
 `-string`.
 
