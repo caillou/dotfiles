@@ -6,8 +6,10 @@
 # Nothing here touches this Mac. `sudo`, `xattr`, `pgrep`, `ps`, `osascript`
 # and `open` are stubs, Applications is a temporary folder, and the apps table
 # is replaced so the assertions run on data the test owns. Which apps carry
-# the flag is a file the xattr stub consults; whether Hammerspoon runs, and
-# from where, is another. The sudo log doubles as the count of password
+# the flag is a file the xattr stub consults, which carry Gatekeeper's
+# provenance mark is another; whether Hammerspoon runs, and from where, is a
+# third. A bundle from the portal belongs to root, which the test plays by
+# taking the write bit away. The sudo log doubles as the count of password
 # prompts: a settled Mac must leave it empty.
 
 FAKE_APPS='{"apps":[
@@ -27,21 +29,27 @@ setup() {
 
   SCRIPT="$REPO_ROOT/.chezmoiscripts/run_after_55-quarantine.sh.tmpl"
   FLAGGED="$BATS_TEST_TMPDIR/flagged"        # one app bundle name per line
+  PROVENANCE="$BATS_TEST_TMPDIR/provenance"  # same, for com.apple.provenance
   RUNNING="$BATS_TEST_TMPDIR/hammerspoon-path" # exists while Hammerspoon runs
   LOG="$BATS_TEST_TMPDIR/commands.log"
   HS_LINK="$HOME/.local/bin/hs"
   TRANSLOCATED="/private/var/folders/xx/T/AppTranslocation/0000-1111/d/Hammerspoon.app"
-  : >"$FLAGGED"
+  : >"$FLAGGED" "$PROVENANCE"
   stub_commands
 }
 
+teardown() {
+  chmod -R u+w "$DOTFILES_APPLICATIONS" 2>/dev/null || true
+}
+
 stub_commands() {
-  # xattr -p <attr> <path> answers from the flagged list; -dr <attr> <path>
-  # is what sudo runs, and it removes the app from the list.
+  # xattr -p <attr> <path> answers from the list that attribute keeps;
+  # -dr com.apple.quarantine <path> removes the app from the flagged list.
   stub xattr "$LOG" <<EOF
-case "\$1" in
--p) grep -qxF "\${3##*/}" "$FLAGGED"; exit \$? ;;
--dr) grep -vxF "\${3##*/}" "$FLAGGED" >"$FLAGGED.new" || true; mv "$FLAGGED.new" "$FLAGGED" ;;
+case "\$1 \$2" in
+"-p com.apple.quarantine") grep -qxF "\${3##*/}" "$FLAGGED"; exit \$? ;;
+"-p com.apple.provenance") grep -qxF "\${3##*/}" "$PROVENANCE"; exit \$? ;;
+"-dr com.apple.quarantine") grep -vxF "\${3##*/}" "$FLAGGED" >"$FLAGGED.new" || true; mv "$FLAGGED.new" "$FLAGGED" ;;
 *) exit 99 ;;
 esac
 EOF
@@ -75,8 +83,19 @@ installed() {
   mkdir -p "$DOTFILES_APPLICATIONS/$1/Contents/MacOS"
 }
 
+# from_portal "Hammerspoon.app" -> the bundle belongs to root, as the test
+# can show it: not writable by the user
+from_portal() {
+  installed "$1"
+  chmod a-w "$DOTFILES_APPLICATIONS/$1"
+}
+
 flagged() {
   printf '%s\n' "$1" >>"$FLAGGED"
+}
+
+approved() {
+  printf '%s\n' "$1" >>"$PROVENANCE"
 }
 
 # hammerspoon_runs_from <path of the running binary's bundle>
@@ -102,14 +121,38 @@ refute_logged() {
 
 # --- the flag ---------------------------------------------------------------
 
-@test "a flagged app that is installed has its flag cleared through sudo" {
+@test "a flagged app from the portal has its flag cleared through sudo" {
+  from_portal 'Karabiner-Elements.app'
+  flagged 'Karabiner-Elements.app'
+  quarantine true
+  [ "$status" -eq 0 ]
+  says "clearing Gatekeeper's flag on Karabiner-Elements.app (sudo password needed)"
+  logged "sudo xattr -dr com.apple.quarantine $DOTFILES_APPLICATIONS/Karabiner-Elements.app"
+  [ ! -s "$FLAGGED" ]
+}
+
+@test "a flagged app the user owns is cleared without sudo" {
   installed 'Karabiner-Elements.app'
   flagged 'Karabiner-Elements.app'
   quarantine true
   [ "$status" -eq 0 ]
   says "clearing Gatekeeper's flag on Karabiner-Elements.app"
-  logged "sudo xattr -dr com.apple.quarantine $DOTFILES_APPLICATIONS/Karabiner-Elements.app"
+  refute_says 'sudo'
+  refute_logged 'sudo'
+  logged "xattr -dr com.apple.quarantine $DOTFILES_APPLICATIONS/Karabiner-Elements.app"
   [ ! -s "$FLAGGED" ]
+}
+
+@test "an app Gatekeeper has approved keeps its flag and costs nothing" {
+  from_portal 'Karabiner-Elements.app'
+  flagged 'Karabiner-Elements.app'
+  approved 'Karabiner-Elements.app'
+  quarantine true
+  [ "$status" -eq 0 ]
+  refute_logged 'sudo'
+  refute_logged 'xattr -dr'
+  refute_says 'clearing'
+  [ -z "$output" ]
 }
 
 @test "an app without the flag costs no sudo" {
@@ -153,7 +196,7 @@ refute_logged() {
 }
 
 @test "a sudo that fails says so and exits zero" {
-  installed 'Karabiner-Elements.app'
+  from_portal 'Karabiner-Elements.app'
   flagged 'Karabiner-Elements.app'
   stub sudo "$LOG" 1 </dev/null
   quarantine true
@@ -211,7 +254,7 @@ refute_logged() {
 }
 
 @test "a Hammerspoon whose flag could not be cleared is not relaunched" {
-  installed 'Hammerspoon.app'
+  from_portal 'Hammerspoon.app'
   flagged 'Hammerspoon.app'
   hammerspoon_runs_from "$TRANSLOCATED"
   stub sudo "$LOG" 1 </dev/null

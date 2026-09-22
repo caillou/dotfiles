@@ -383,9 +383,13 @@ An app from the portal keeps the quarantine attribute its download got, and
 nothing ever moves it in the Finder, so macOS runs it from a throwaway copy
 under `/private/var/folders/.../AppTranslocation/` with a new path on every
 launch. `run_after_55-quarantine.sh.tmpl` clears the flag on every app the
-table names that carries it, through sudo, since the bundles belong to root.
-A settled Mac carries no flag and is not prompted. The script runs on a
-managed Mac only: Homebrew clears the flag itself on the other kind.
+table names that carries it, through sudo when the bundle belongs to root.
+An app that has been launched and approved by Gatekeeper is left alone: it
+carries `com.apple.provenance`, runs from `/Applications` already, and SIP
+refuses to strip its flag even for root. A Homebrew cask ends up in that
+state too, since Cask writes a quarantine record of its own. A settled Mac
+is not prompted. The script runs on a managed Mac only, where the portal is
+an installer.
 
 VS Code from the portal comes without the `code` command. The Homebrew cask
 links it into `/opt/homebrew/bin`; a Self Service install links nothing. So

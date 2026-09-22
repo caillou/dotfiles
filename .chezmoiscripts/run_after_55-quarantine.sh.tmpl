@@ -12,9 +12,17 @@
 # link dies at the next restart; Karabiner and the rest are simply slower to
 # start. The flag is cleared for every app the table names that carries it.
 #
-# Homebrew is the only installer on an unmanaged Mac and clears the flag
-# itself, so this runs on a managed Mac only. The bundles belong to root, so
-# each removal costs sudo; a settled Mac carries no flag and never prompts.
+# An app that has been launched and approved by Gatekeeper carries a
+# com.apple.provenance attribute. Its quarantine flag is approved with it:
+# macOS runs the app from /Applications, and SIP refuses to strip the flag
+# from those files, even for root. Such an app is left alone, else every
+# apply would prompt for sudo and fail on every file in the bundle. That is
+# how a Homebrew cask ends up: Cask writes a quarantine record of its own, so
+# an installer is no proof of a clean bundle.
+#
+# The step runs on a managed Mac only, where the portal is an installer. A
+# bundle from the portal belongs to root and its removal costs sudo; a bundle
+# the user owns is cleared without. A settled Mac never prompts.
 
 XATTR="${DOTFILES_XATTR:-xattr}"
 PGREP="${DOTFILES_PGREP:-pgrep}"
@@ -26,16 +34,21 @@ if ! is_managed; then
   exit 0
 fi
 
-# quarantined "Hammerspoon.app"
+# quarantined "Hammerspoon.app" -> 0 when the flag is there and removable
 quarantined() {
-  "$XATTR" -p com.apple.quarantine "$APPLICATIONS/$1" >/dev/null 2>&1
+  "$XATTR" -p com.apple.quarantine "$APPLICATIONS/$1" >/dev/null 2>&1 || return 1
+  ! "$XATTR" -p com.apple.provenance "$APPLICATIONS/$1" >/dev/null 2>&1
 }
 
 # clear_flag "Hammerspoon.app" -> 0 when the flag is gone
+# xattr -dr reports every file it cannot touch; one line below is enough.
 clear_flag() {
-  echo "quarantine: clearing Gatekeeper's flag on $1 (sudo password needed)"
-  if sudo "$XATTR" -dr com.apple.quarantine "$APPLICATIONS/$1"; then
-    return 0
+  if [ -w "$APPLICATIONS/$1" ]; then
+    echo "quarantine: clearing Gatekeeper's flag on $1"
+    "$XATTR" -dr com.apple.quarantine "$APPLICATIONS/$1" 2>/dev/null && return 0
+  else
+    echo "quarantine: clearing Gatekeeper's flag on $1 (sudo password needed)"
+    sudo "$XATTR" -dr com.apple.quarantine "$APPLICATIONS/$1" 2>/dev/null && return 0
   fi
   echo "quarantine: could not clear the flag on $1. The next \`chezmoi apply\` tries again."
   return 1
