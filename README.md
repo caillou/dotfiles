@@ -392,7 +392,9 @@ links it into `/opt/homebrew/bin`; a Self Service install links nothing. So
 `dot_local/bin/symlink_code.tmpl` links `~/.local/bin/code` to the launcher
 inside the app bundle. The template renders empty while the app is missing,
 and chezmoi creates nothing from an empty symlink, so a Mac without VS Code
-carries no dangling link and the apply after the app arrives adds it.
+carries no dangling link and the apply after the app arrives adds it. lazygit's
+managed config opens files in VS Code through that same `code` command, so it
+works on both kinds of Mac once the launcher is there.
 
 ## Manual checklist
 
@@ -474,6 +476,7 @@ off. After that it does not prompt.
 .iterm2/                   iTerm2's preferences folder, loaded and saved in place
 .karabiner/                karabiner.ts source for the keyboard rules
 dot_config/private_fish/   fish; `private_` means mode 0700
+dot_config/lazygit/        lazygit's config; its state and PR cache next to it are never managed
 dot_hammerspoon/           init.lua, windows.lua, status-message.lua
 dot_local/                 the `code` symlink and the folders the `hs` installer needs
 dot_*                      the rest of the home directory, `dot_` standing in for the leading dot

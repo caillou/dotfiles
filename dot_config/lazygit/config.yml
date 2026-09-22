@@ -1,0 +1,10 @@
+# lazygit's settings. One key is worth carrying between Macs: `e` opens the
+# file under the cursor in VS Code instead of the shell's editor. lazygit
+# falls back to its own default for every key that is missing here, and it
+# never writes this file back, so an apply stays quiet.
+#
+# The two neighbours are lazygit's own and never managed: state.yml is
+# rewritten on every launch (recent repos, the hidden command log, the last
+# version seen) and github_pull_requests.json caches PR lookups.
+os:
+  editPreset: 'vscode'
