@@ -11,7 +11,7 @@
 # The order is the whole point: System Settings quits first (it holds its panes
 # in memory and writes them back on quit, undoing everything), then every
 # write, then activateSettings so the input settings apply without a logout,
-# then the three UI processes that cache what was written.
+# then the UI processes that cache what was written.
 {{ template "facts.sh" . }}
 # The private tool that re-reads the input settings. Overridable so a test can
 # watch it being called without re-applying anything on the test machine.
@@ -235,6 +235,19 @@ for corner in tl tr bl br; do
   defaults write com.apple.dock "wvous-$corner-modifier" -int 0
 done
 
+# --- Control Center --------------------------------------------------------
+
+# The menu bar items Control Center draws. 18 is "Always Show in Menu Bar",
+# 24 "Show When Active" (the default: the Sound icon only while audio plays
+# or an external output is connected), 8 "Don't Show in Menu Bar".
+# Control Center caches these and is restarted with the other UI processes.
+defaults write com.apple.controlcenter Sound -int 18
+defaults write com.apple.controlcenter Bluetooth -int 18
+
+# Spotlight's toggle sits in the same pane but lives in Spotlight's own
+# domain; a Spotlight key in the controlcenter domain does nothing.
+defaults write com.apple.Spotlight MenuItemHidden -int 1
+
 # --- Wallpaper -------------------------------------------------------------
 
 # The wallpaper store records which provider drew the desktop, and reading it
@@ -371,7 +384,7 @@ if [ -x "$ACTIVATE_SETTINGS" ]; then
   "$ACTIVATE_SETTINGS" -u || true
 fi
 
-killall Finder Dock SystemUIServer TextInputMenuAgent >/dev/null 2>&1 || true
+killall Finder Dock SystemUIServer TextInputMenuAgent ControlCenter >/dev/null 2>&1 || true
 
 # --- Pointer speed read-back -----------------------------------------------
 

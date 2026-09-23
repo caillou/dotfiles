@@ -165,7 +165,7 @@ at() {
   first_write="$(grep -n -m 1 '^defaults write ' "$SCRIPT" | cut -d : -f 1)"
   last_write="$(grep -n '^defaults ' "$SCRIPT" | tail -n 1 | cut -d : -f 1)"
   activate="$(at "$SCRIPT" '"$ACTIVATE_SETTINGS" -u')"
-  restart="$(at "$SCRIPT" 'killall Finder Dock SystemUIServer TextInputMenuAgent')"
+  restart="$(at "$SCRIPT" 'killall Finder Dock SystemUIServer TextInputMenuAgent ControlCenter')"
 
   [ "$quit" -lt "$first_write" ]
   [ "$last_write" -lt "$activate" ]
@@ -179,7 +179,7 @@ at() {
   first_write="$(grep -n -m 1 '^defaults write ' "$LOG" | cut -d : -f 1)"
   last_write="$(grep -n '^defaults ' "$LOG" | tail -n 1 | cut -d : -f 1)"
   activate="$(at "$LOG" 'activateSettings -u')"
-  restart="$(at "$LOG" 'killall Finder Dock SystemUIServer TextInputMenuAgent')"
+  restart="$(at "$LOG" 'killall Finder Dock SystemUIServer TextInputMenuAgent ControlCenter')"
 
   [ "$quit" = 1 ]
   [ "$quit" -lt "$first_write" ]
@@ -387,7 +387,7 @@ EOF
   ! grep -q '^defaults write com.apple.Safari ' "$LOG"
   ! grep -q 'tell application "Safari" to quit' "$LOG"
   logged 'defaults write com.apple.Safari.SandboxBroker ShowDevelopMenu -bool true'
-  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent'
+  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent ControlCenter'
 }
 
 @test "safari: a quit that fails prints the manual step and the writes still happen" {
@@ -396,6 +396,16 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *'Safari could not be quit'* ]]
   logged 'defaults write com.apple.Safari ShowFullURLInSmartSearchField -bool true'
+}
+
+@test "control center: Sound and Bluetooth always in the menu bar, Spotlight never" {
+  applied
+  [ "$status" -eq 0 ]
+  writes_all <<'EOF'
+defaults write com.apple.controlcenter Sound -int 18
+defaults write com.apple.controlcenter Bluetooth -int 18
+defaults write com.apple.Spotlight MenuItemHidden -int 1
+EOF
 }
 
 @test "window manager" {
@@ -501,7 +511,7 @@ with open(sys.argv[1], "rb") as f:
   [ "$status" -eq 0 ]
   [[ "$output" == *'skipping the dictation shortcut'* ]]
   [ ! -f "$IMPORTED" ]
-  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent'
+  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent ControlCenter'
 }
 
 # --- the wallpaper ---------------------------------------------------------
@@ -587,7 +597,7 @@ system_events_calls() {
   apply
   [ "$status" -eq 0 ]
   [[ "$output" == *'could not set the wallpaper'* ]]
-  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent'
+  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent ControlCenter'
 }
 
 # --- power -----------------------------------------------------------------
@@ -635,7 +645,7 @@ AC Power:
   apply
   [ "$status" -eq 0 ]
   [[ "$output" == *'System Settings > Battery'* ]]
-  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent'
+  logged 'killall Finder Dock SystemUIServer TextInputMenuAgent ControlCenter'
 }
 
 # --- pointer speed read-back -----------------------------------------------
