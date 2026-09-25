@@ -104,6 +104,15 @@ store_hash() {
 }
 
 # file_hash <path>...  -> the sha256 of the files' contents, concatenated
+#
+# A missing file is a failure, not a shorter input: `cat` alone would hash the
+# files that are there, and the hash would look valid.
 file_hash() {
+  for file in "$@"; do
+    if [ ! -f "$file" ]; then
+      echo "file_hash: $file does not exist" >&2
+      return 1
+    fi
+  done
   cat "$@" | shasum -a 256 | cut -d ' ' -f 1
 }

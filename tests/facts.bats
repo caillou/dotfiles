@@ -129,6 +129,23 @@ EOF
   [ "$output" = no ]
 }
 
+@test "file_hash is the sha256 of the files' contents, concatenated" {
+  facts="$(render_facts)"
+  printf 'a' >"$BATS_TEST_TMPDIR/a"
+  printf 'b' >"$BATS_TEST_TMPDIR/b"
+  facts_probe "$facts" "file_hash '$BATS_TEST_TMPDIR/a' '$BATS_TEST_TMPDIR/b'"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'ab' | shasum -a 256 | cut -d ' ' -f 1)" ]
+}
+
+@test "file_hash fails when a file is missing instead of hashing the rest" {
+  facts="$(render_facts)"
+  printf 'a' >"$BATS_TEST_TMPDIR/a"
+  facts_probe "$facts" "file_hash '$BATS_TEST_TMPDIR/a' '$BATS_TEST_TMPDIR/missing'"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'missing does not exist'* ]]
+}
+
 @test "the preamble puts the asdf shims on PATH when they exist" {
   facts="$(render_facts)"
   export HOME="$BATS_TEST_TMPDIR/home"
