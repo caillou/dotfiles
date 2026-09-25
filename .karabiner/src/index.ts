@@ -56,6 +56,14 @@ writeToProfile('Default profile', [
     ]),
   ]),
   rule('CAPS_LOCK to esc/control', ifRemoteDesktop.unless()).manipulators([
+    // ⇧ + caps held is ⇧⌃; tapped alone it is the real caps lock. It comes
+    // first so ⇧ does not fall into the `any` catch-all. Karabiner lifts a
+    // mandatory modifier for as long as the output is a modifier, so ⇧ is
+    // held again explicitly. caps_lock is optional so the tap still matches
+    // (and turns caps lock off) while caps lock is on.
+    map('caps_lock', 'shift', 'caps_lock')
+      .to('left_control', 'left_shift')
+      .toIfAlone('caps_lock'),
     map('caps_lock', null, 'any').to('left_control').toIfAlone('escape'),
   ]),
 
@@ -87,6 +95,12 @@ writeToProfile('Default profile', [
     // Physical ⌘ is already control here, so ⌘← / ⌘→ become Home / End.
     map('left_arrow', 'control', 'any').to('home'),
     map('right_arrow', 'control', 'any').to('end'),
+    // ⇧ + caps: held is ⇧⌃ (with the variable, like below), tapped alone is
+    // the real caps lock; ⇧ held again and caps_lock optional as above.
+    map('caps_lock', 'shift', 'caps_lock')
+      .toVar('caps-ctrl', 1, 0)
+      .to('left_control', 'left_shift')
+      .toIfAlone('caps_lock'),
     // caps = ⌃ like on the mac, but it also sets a variable so a/e can
     // become home/end without swallowing ⌘a/⌘e (⌘ is ⌃ here as well).
     map('caps_lock', null, 'any')
