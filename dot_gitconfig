@@ -14,3 +14,5 @@
 	path = ~/.config/git/icfm.gitconfig
 [push]
 	autoSetupRemote = true
+[rerere]
+	enabled = true
