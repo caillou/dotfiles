@@ -9,9 +9,17 @@ SOURCE={{ printf "%s/.karabiner" .chezmoi.sourceDir | quote }}
 # only checks that it is there. Karabiner writes it on first launch.
 CONFIG="$HOME/.config/karabiner/karabiner.json"
 
+# The profile the rules file writes into (`writeToProfile` in src/index.ts).
+# Karabiner creates it on first launch; karabiner.ts exits 1 when it is gone.
+PROFILE="Default profile"
+
 # The preamble puts the asdf shims on PATH, which is where node and npm come
 # from. This is the seam a test uses to point the script at a stub.
 NPM="${DOTFILES_NPM:-npm}"
+
+# The preamble puts Homebrew on PATH, which is where jq comes from (a core
+# formula, so script 10 has installed it). It reads the config file.
+JQ="${DOTFILES_JQ:-jq}"
 
 # Karabiner can arrive later: Self Service on the managed Mac, or a deliberate
 # install. A missing Karabiner is a skip; the next apply builds the rules.
@@ -29,16 +37,52 @@ if [ ! -f "$CONFIG" ]; then
   exit 0
 fi
 
-# The rules file and the lockfile are the whole input to the build: same bytes,
-# same karabiner.json. The hash is stored only after a build succeeded, so a
-# matching hash is also the record of that success.
-hash="$(file_hash "$SOURCE/src/index.ts" "$SOURCE/package-lock.json")"
-if hash_unchanged karabiner "$hash"; then
+if ! has_command "$JQ"; then
+  echo "karabiner: jq is not available yet (it comes from Homebrew), skipping. The next \`chezmoi apply\` builds the rules."
+  exit 0
+fi
+
+# `$name` in the filters below is jq's variable, bound by --arg, not the
+# shell's, hence the single quotes.
+# profile_exists -> the config file has the profile the rules are written into
+profile_exists() {
+  # shellcheck disable=SC2016
+  "$JQ" -e --arg name "$PROFILE" \
+    'any(.profiles[]?; .name == $name)' "$CONFIG" >/dev/null 2>&1
+}
+
+# rules_present -> that profile holds at least one complex modification rule
+rules_present() {
+  # shellcheck disable=SC2016
+  "$JQ" -e --arg name "$PROFILE" \
+    'any(.profiles[]?; .name == $name and ((.complex_modifications.rules // []) | length > 0))' \
+    "$CONFIG" >/dev/null 2>&1
+}
+
+# Everything the build reads is the input: the package files, the compiler
+# config and every file under src/ (the glob is sorted). The hash is stored
+# only after a build succeeded, so a matching hash is also the record of that
+# success. The hash alone cannot answer whether the rules are still in the
+# config file: Karabiner recreates it on a reinstall, a "restore to default"
+# or a restored backup, so the destination is checked too.
+hash="$(cd "$SOURCE" && file_hash package.json package-lock.json tsconfig.json src/*)"
+if hash_unchanged karabiner "$hash" && rules_present; then
   # Nothing to say on the common path: every apply runs this script.
   exit 0
 fi
 
-if ! has_command "$NPM"; then
+# Without the profile the build exits 1 after a full `npm ci`, every apply.
+# Karabiner owns the file, so the fix is in its UI, not here.
+if ! profile_exists; then
+  echo "karabiner: $CONFIG has no profile named \"$PROFILE\", which is where the rules go."
+  echo "karabiner: Rename or create that profile in Karabiner-Elements. The next \`chezmoi apply\` builds the rules."
+  exit 0
+fi
+
+# The asdf shim is on PATH before any node is installed, so finding npm is
+# not enough: it has to answer, from the project directory, where asdf picks
+# the node version.
+if ! (cd "$SOURCE" && "$NPM" --version >/dev/null 2>&1); then
   echo "karabiner: npm is not available yet (it comes from the asdf node), skipping. The next \`chezmoi apply\` builds the rules."
   exit 0
 fi
@@ -47,9 +91,18 @@ fi
 # broken rules file must not stop the rest of the sync. The hash stays
 # unstored, so the next apply builds the rules.
 echo "karabiner: building the rules from $SOURCE"
-if ! (cd "$SOURCE" && "$NPM" ci </dev/null); then
-  echo "karabiner: npm ci failed. The next \`chezmoi apply\` builds the rules."
-  exit 0
+
+# The dependencies have their own hash, stored after an `npm ci` succeeded, so
+# a rules file that fails to build costs an install once, not on every apply.
+# `node_modules` can disappear without the package files changing (a clean
+# checkout), hence the directory check.
+deps_hash="$(cd "$SOURCE" && file_hash package.json package-lock.json)"
+if ! { hash_unchanged karabiner-deps "$deps_hash" && [ -d "$SOURCE/node_modules" ]; }; then
+  if ! (cd "$SOURCE" && "$NPM" ci </dev/null); then
+    echo "karabiner: npm ci failed. The next \`chezmoi apply\` builds the rules."
+    exit 0
+  fi
+  store_hash karabiner-deps "$deps_hash"
 fi
 
 if ! (cd "$SOURCE" && "$NPM" run build </dev/null); then

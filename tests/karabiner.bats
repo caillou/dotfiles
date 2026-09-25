@@ -130,9 +130,12 @@ tsconfig.json' ]
 
 # stub_npm -> an npm that logs its working directory and arguments (its own
 # log line, because the directory is what the tests assert); the build writes
-# the config file the way karabiner.ts does, in place.
+# the "Default profile" with one rule into the config file, the way
+# karabiner.ts does, naming the directory it was built from. The version
+# probe is answered and not logged: it is not a command the tests count.
 stub_npm() {
   stub npm <<'EOF'
+case "$1" in --version) echo 10.9.0; exit 0 ;; esac
 echo "$PWD $*" >>"$NPM_STUB_LOG"
 case "$1" in
 ci)
@@ -142,7 +145,9 @@ ci)
 run)
   [ -z "${NPM_STUB_FAIL_BUILD:-}" ] || { echo "stub: the build failed" >&2; exit 1; }
   [ -d node_modules ] || { echo "stub: dependencies are not installed" >&2; exit 1; }
-  printf 'built from %s\n' "$PWD" >"$HOME/.config/karabiner/karabiner.json"
+  printf '{ "profiles": [ { "name": "Default profile", "selected": true,
+    "complex_modifications": { "rules": [ { "description": "built from %s" } ] } } ] }\n' \
+    "$PWD" >"$HOME/.config/karabiner/karabiner.json"
   ;;
 *)
   echo "stub: unexpected subcommand $1" >&2
@@ -157,10 +162,24 @@ karabiner_installed() {
   mkdir -p "$DOTFILES_APPLICATIONS/Karabiner-Elements.app"
 }
 
-# karabiner_launched -> the config file Karabiner writes on first launch
+# karabiner_launched -> the config file Karabiner writes on first launch: one
+# profile, "Default profile", without rules. Called again after a build it is
+# the file Karabiner recreates on a reinstall or a "restore to default".
 karabiner_launched() {
   mkdir -p "$(dirname "$CONFIG")"
-  printf '{ "profiles": [] }\n' >"$CONFIG"
+  printf '{ "profiles": [ { "name": "Default profile", "selected": true } ] }\n' >"$CONFIG"
+}
+
+# karabiner_profile_renamed -> a config file whose only profile is not the one
+# the rules are written into
+karabiner_profile_renamed() {
+  mkdir -p "$(dirname "$CONFIG")"
+  printf '{ "profiles": [ { "name": "Work", "selected": true } ] }\n' >"$CONFIG"
+}
+
+# built_from -> the directory the stub's build wrote its rule from
+built_from() {
+  jq -r '.profiles[0].complex_modifications.rules[0].description' "$CONFIG"
 }
 
 # source_copy -> a throwaway chezmoi source directory holding a copy of the
@@ -187,6 +206,10 @@ built_times() {
   grep -c ' run build$' "$NPM_STUB_LOG" 2>/dev/null || true
 }
 
+installed_times() {
+  grep -c ' ci$' "$NPM_STUB_LOG" 2>/dev/null || true
+}
+
 # --- a machine that has Karabiner ------------------------------------------
 
 @test "the first apply installs the dependencies and builds the rules" {
@@ -198,8 +221,9 @@ built_times() {
   # Both commands run in the project directory, not in the home directory.
   [ "$(cat "$NPM_STUB_LOG")" = "$SOURCE_DIR/.karabiner ci
 $SOURCE_DIR/.karabiner run build" ]
-  [ "$(cat "$CONFIG")" = "built from $SOURCE_DIR/.karabiner" ]
+  [ "$(built_from)" = "built from $SOURCE_DIR/.karabiner" ]
   [ -f "$DOTFILES_STATE/karabiner.hash" ]
+  [ -f "$DOTFILES_STATE/karabiner-deps.hash" ]
 }
 
 @test "an unchanged source builds nothing and says nothing" {
@@ -226,6 +250,80 @@ $SOURCE_DIR/.karabiner run build" ]
   karabiner_script
   [ "$status" -eq 0 ]
   [ "$(built_times)" -eq 2 ]
+  # The dependencies did not change, so they are not installed again.
+  [ "$(installed_times)" -eq 1 ]
+}
+
+@test "a new file under src rebuilds" {
+  stub_npm
+  karabiner_installed
+  karabiner_launched
+  karabiner_script
+  [ "$status" -eq 0 ]
+
+  echo "export const layer = 'right_command'" >"$SOURCE_DIR/.karabiner/src/layers.ts"
+  karabiner_script
+  [ "$status" -eq 0 ]
+  [ "$(built_times)" -eq 2 ]
+}
+
+@test "a changed package file reinstalls and rebuilds" {
+  stub_npm
+  karabiner_installed
+  karabiner_launched
+  karabiner_script
+  [ "$status" -eq 0 ]
+
+  sed -i.bak 's/"build": "tsx src\/index.ts"/"build": "tsx --tsconfig tsconfig.json src\/index.ts"/' \
+    "$SOURCE_DIR/.karabiner/package.json"
+  rm -f "$SOURCE_DIR/.karabiner/package.json.bak"
+  karabiner_script
+  [ "$status" -eq 0 ]
+  [ "$(installed_times)" -eq 2 ]
+  [ "$(built_times)" -eq 2 ]
+}
+
+@test "a changed compiler config rebuilds" {
+  stub_npm
+  karabiner_installed
+  karabiner_launched
+  karabiner_script
+  [ "$status" -eq 0 ]
+
+  echo "// strict" >>"$SOURCE_DIR/.karabiner/tsconfig.json"
+  karabiner_script
+  [ "$status" -eq 0 ]
+  [ "$(built_times)" -eq 2 ]
+}
+
+@test "a reset config file rebuilds" {
+  stub_npm
+  karabiner_installed
+  karabiner_launched
+  karabiner_script
+  [ "$status" -eq 0 ]
+
+  # A reinstall, "restore to default" or a restored backup: the file is back
+  # to what first launch wrote, the source has not changed, the hash matches.
+  karabiner_launched
+  karabiner_script
+  [ "$status" -eq 0 ]
+  [ "$(built_times)" -eq 2 ]
+  [ "$(built_from)" = "built from $SOURCE_DIR/.karabiner" ]
+}
+
+@test "dependencies that went missing are installed again" {
+  stub_npm
+  karabiner_installed
+  karabiner_launched
+  karabiner_script
+  [ "$status" -eq 0 ]
+
+  rm -r "$SOURCE_DIR/.karabiner/node_modules"
+  echo "// a new rule" >>"$SOURCE_DIR/.karabiner/src/index.ts"
+  karabiner_script
+  [ "$status" -eq 0 ]
+  [ "$(installed_times)" -eq 2 ]
 }
 
 @test "a changed lockfile rebuilds" {
@@ -240,6 +338,7 @@ $SOURCE_DIR/.karabiner run build" ]
   rm -f "$SOURCE_DIR/.karabiner/package-lock.json.bak"
   karabiner_script
   [ "$status" -eq 0 ]
+  [ "$(installed_times)" -eq 2 ]
   [ "$(built_times)" -eq 2 ]
 }
 
@@ -280,6 +379,25 @@ $SOURCE_DIR/.karabiner run build" ]
   [ -f "$DOTFILES_STATE/karabiner.hash" ]
 }
 
+@test "with the profile renamed the script says how to fix it and waits" {
+  stub_npm
+  karabiner_installed
+  karabiner_profile_renamed
+  karabiner_script
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$CONFIG has no profile named \"Default profile\""* ]]
+  [[ "$output" == *'Rename or create that profile in Karabiner-Elements'* ]]
+  # Nothing was installed: the build would only have failed after `npm ci`.
+  [ ! -f "$NPM_STUB_LOG" ]
+  [ ! -f "$DOTFILES_STATE/karabiner.hash" ]
+  [ ! -f "$DOTFILES_STATE/karabiner-deps.hash" ]
+
+  karabiner_launched
+  karabiner_script
+  [ "$status" -eq 0 ]
+  [ "$(built_times)" -eq 1 ]
+}
+
 @test "the script never creates Karabiner's config file itself" {
   stub_npm
   karabiner_installed
@@ -300,6 +418,33 @@ $SOURCE_DIR/.karabiner run build" ]
   karabiner_script
   [ "$status" -eq 0 ]
   [[ "$output" == *'npm is not available'* ]]
+  [ ! -f "$DOTFILES_STATE/karabiner.hash" ]
+}
+
+@test "an npm shim without a node behind it counts as no npm" {
+  # The asdf shim exists as soon as asdf does; it fails when no node version
+  # applies, which is what `npm --version` shows.
+  stub npm <<'EOF'
+echo "asdf: No version is set for command npm" >&2
+exit 126
+EOF
+  karabiner_installed
+  karabiner_launched
+  karabiner_script
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'npm is not available'* ]]
+  [ ! -f "$DOTFILES_STATE/karabiner.hash" ]
+}
+
+@test "without jq the script waits for Homebrew instead of failing" {
+  stub_npm
+  export DOTFILES_JQ="$BATS_TEST_TMPDIR/bin/absent-jq"
+  karabiner_installed
+  karabiner_launched
+  karabiner_script
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'jq is not available'* ]]
+  [ ! -f "$NPM_STUB_LOG" ]
   [ ! -f "$DOTFILES_STATE/karabiner.hash" ]
 }
 
@@ -334,4 +479,21 @@ $SOURCE_DIR/.karabiner run build" ]
   karabiner_script
   [ "$status" -eq 0 ]
   [ -f "$DOTFILES_STATE/karabiner.hash" ]
+}
+
+@test "a failing build does not install the dependencies again next time" {
+  stub_npm
+  karabiner_installed
+  karabiner_launched
+  export NPM_STUB_FAIL_BUILD=1
+  karabiner_script
+  [ "$status" -eq 0 ]
+  # The install succeeded and is recorded on its own, the build is not.
+  [ -f "$DOTFILES_STATE/karabiner-deps.hash" ]
+  [ ! -f "$DOTFILES_STATE/karabiner.hash" ]
+
+  karabiner_script
+  [ "$status" -eq 0 ]
+  [ "$(installed_times)" -eq 1 ]
+  [ "$(built_times)" -eq 2 ]
 }

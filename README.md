@@ -299,12 +299,30 @@ profile" of `~/.config/karabiner/karabiner.json` and leaves Karabiner's other
 settings alone. That file is never committed: Karabiner rewrites it whenever it
 feels like it, and it ignores a symlink in its place.
 
-Script 50 runs on every apply. It skips, with a message, unless
-Karabiner-Elements is installed and has written its config file, which it does
-on first launch. Otherwise it hashes `src/index.ts` plus the lockfile and runs
-`npm ci` and `npm run build` when that hash changed or no successful build is
-recorded. A Karabiner installed or launched later gets its rules on the next
-sync.
+Script 50 runs on every apply and never fails it. It skips, with a message,
+when Karabiner-Elements is not installed, when its config file does not exist
+(Karabiner writes it on first launch), when `jq` is not there yet (Homebrew,
+script 10) or when `npm` does not answer (the asdf node, script 40; the shim
+alone is not enough). Whatever was missing, the next sync builds the rules.
+
+The input to the build is `package.json`, the lockfile, `tsconfig.json` and
+every file under `src/`. The script hashes them and says nothing when the hash
+matches the one stored after the last successful build *and* the "Default
+profile" in `karabiner.json` still holds rules. The second condition is what
+catches a reinstall, a "restore to default" or a restored backup: Karabiner
+recreates the file, the source has not changed, and the rules are rebuilt
+anyway.
+
+Before installing anything the script checks that the config file has a
+profile named "Default profile", the one `src/index.ts` writes into;
+karabiner.ts exits 1 without it, after a full `npm ci`. Without the profile it
+prints the file's path and asks for the profile to be renamed or created in
+Karabiner-Elements, and waits.
+
+`npm ci` has its own hash, over `package.json` and the lockfile, stored in
+`karabiner-deps.hash` once it succeeded. A rules file that does not build
+costs an install once, not on every apply; the dependencies are installed
+again when the package files change or `node_modules` is gone.
 
 To iterate without applying:
 
