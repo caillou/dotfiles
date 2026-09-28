@@ -199,6 +199,51 @@ cask "font-anonymice-nerd-font"' ]
   [ ! -f "$DOTFILES_STATE/packages.hash" ]
 }
 
+# --- Xcode's first launch --------------------------------------------------
+
+# stub_xcodebuild <first-launch done?>  -> an xcodebuild whose status check
+# passes or fails, logging every call
+stub_xcodebuild() {
+  XCODELOG="$BATS_TEST_TMPDIR/xcodebuild.log"
+  export DOTFILES_XCODEBUILD="$BATS_TEST_TMPDIR/bin/xcodebuild"
+  local code=0
+  [ "$1" = true ] || code=69
+  stub xcodebuild "$XCODELOG" <<EOF
+case "\$1" in
+-checkFirstLaunchStatus) exit $code ;;
+esac
+exit 0
+EOF
+}
+
+@test "an Xcode that has not finished its first launch is launched before brew bundle" {
+  stub_brew
+  installed "Xcode.app"
+  stub_xcodebuild false
+  packages false
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"asks for your password"* ]]
+  [ "$(cat "$XCODELOG")" = "xcodebuild -checkFirstLaunchStatus
+xcodebuild -runFirstLaunch" ]
+  [ "$(cat "$BREWLOG")" = "brew bundle --file $BREWFILE" ]
+}
+
+@test "an Xcode that has finished its first launch is left alone" {
+  stub_brew
+  installed "Xcode.app"
+  stub_xcodebuild true
+  packages false
+  [ "$(cat "$XCODELOG")" = "xcodebuild -checkFirstLaunchStatus" ]
+}
+
+@test "without Xcode xcodebuild is never run" {
+  stub_brew
+  stub_xcodebuild false
+  packages false
+  [ ! -f "$XCODELOG" ]
+  [ "$(cat "$BREWLOG")" = "brew bundle --file $BREWFILE" ]
+}
+
 # --- the app table ---------------------------------------------------------
 
 # rows <expression> -> one line per row of .chezmoidata/apps.yaml

@@ -53,6 +53,15 @@ if hash_unchanged packages "$hash" && [ "$(marker_value packages-status)" = 0 ];
   exit 0
 fi
 
+# Formulae that build from source against Xcode (sendmidi) fail after every
+# Xcode update until Xcode has installed its system components, which it only
+# does on its first launch. xcodebuild asks for the password in a dialog.
+XCODEBUILD="${DOTFILES_XCODEBUILD:-xcodebuild}"
+if app_present "Xcode.app" && ! "$XCODEBUILD" -checkFirstLaunchStatus >/dev/null 2>&1; then
+  echo "packages: Xcode has not finished its first launch, running it (this asks for your password)"
+  "$XCODEBUILD" -runFirstLaunch || echo "packages: Xcode's first launch failed, the formulae that build against Xcode will fail too"
+fi
+
 # brew bundle carries on past a failing entry and reports at the end. A
 # signed-out App Store or a flaky download must not abort the apply, so the
 # exit code is recorded for the final report instead of propagated.
