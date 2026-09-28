@@ -1,0 +1,107 @@
+#!/bin/sh
+# File handlers: the code-related file types open in VS Code.
+{{ template "facts.sh" . }}
+# macOS keeps the default app per file type in the LaunchServices database,
+# and the only supported way to write it is the Finder's "Open with > Change
+# All" or the LaunchServices API. duti is a small Homebrew tool over that API.
+# The table of apps and extensions is .chezmoidata/handlers.yaml.
+#
+# Since macOS 26 the API is not silent: every change gets a Finder dialog,
+# "Do you want all documents with the extension .md to open with Code, or
+# keep using CotEditor?", and the answer is the user's. duti returns at once,
+# the dialogs pile up, and the handler moves only on "Use". So the script
+# asks once per version of the table: it hashes the table, sets the types
+# whose handler differs, and stores the hash. From then on the apply is
+# silent, and a "Keep" or a type reassigned by hand is respected, until the
+# table changes. To be asked again: rm ~/.local/state/dotfiles/handlers.hash.
+#
+# The hash is stored only after a run that could do its work. An app that is
+# not installed yet (VS Code arrives through Self Service on a managed Mac)
+# means a retry on the next apply, as does a refused type. An extension no
+# installed app declares is not a refusal: LaunchServices has no type for it,
+# only the `dyn.` identifier it makes up on the spot, and it refuses to bind
+# a handler to that (error -50). Such an extension is skipped with a note.
+
+# The preamble puts Homebrew on PATH, which is where duti comes from (a core
+# formula, so script 10 has installed it). mdls is macOS's.
+DUTI="${DOTFILES_DUTI:-duti}"
+MDLS="${DOTFILES_MDLS:-mdls}"
+
+hash={{ .handlers | toJson | sha256sum | quote }}
+if hash_unchanged handlers "$hash"; then
+  exit 0
+fi
+
+if ! has_command "$DUTI"; then
+  echo "handlers: duti is not available yet (it comes from Homebrew), skipping. The next \`chezmoi apply\` sets the file handlers."
+  exit 0
+fi
+
+# current_handler md -> the bundle id of the app that opens that extension,
+# empty when no app does. duti prints the app name, its path and its bundle id.
+current_handler() {
+  "$DUTI" -x "$1" 2>/dev/null | sed -n 3p
+}
+
+# declared fish -> 0 when some installed app declares a type for the
+# extension. The type of an empty file with that extension answers it.
+PROBES="$(mktemp -d)"
+trap 'rm -rf "${PROBES:?}"' EXIT
+declared() {
+  : >"$PROBES/probe.$1"
+  case "$("$MDLS" -name kMDItemContentType -raw "$PROBES/probe.$1" 2>/dev/null)" in
+  dyn.* | '') return 1 ;;
+  esac
+  return 0
+}
+
+# 0 once something kept this run from finishing its work, so the hash is
+# not stored and the next apply tries again.
+settled=1
+
+# assign com.microsoft.VSCode "Visual Studio Code.app" md xml ...
+#
+# The `all` role covers viewing and editing, which is what "Change All" in
+# the Finder sets. A refused extension is reported and does not stop the
+# rest: the apply must not fail on one file type.
+assign() {
+  bundle="$1"
+  app="$2"
+  shift 2
+  if ! app_present "$app"; then
+    echo "handlers: $app is not installed, skipping its file types. The next \`chezmoi apply\` sets them."
+    settled=0
+    return 0
+  fi
+  pending=""
+  for ext in "$@"; do
+    if [ "$(current_handler "$ext")" = "$bundle" ]; then
+      continue
+    fi
+    if ! declared "$ext"; then
+      echo "handlers: no installed app declares .$ext, so LaunchServices cannot bind it. Skipped."
+      continue
+    fi
+    pending="$pending $ext"
+  done
+  if [ -z "$pending" ]; then
+    return 0
+  fi
+  echo "handlers: making $app the app for$pending"
+  echo "handlers: macOS confirms each file type with a dialog. Answer \"Use\" in every one; the apply does not wait for them."
+  # shellcheck disable=SC2086
+  for ext in $pending; do
+    if ! "$DUTI" -s "$bundle" "$ext" all; then
+      echo "handlers: could not make $app the handler for .$ext. The next \`chezmoi apply\` tries again."
+      settled=0
+    fi
+  done
+}
+{{ range .handlers }}
+assign {{ .bundle | quote }} {{ .app | quote }}{{ range .extensions }} {{ . | quote }}{{ end }}
+{{- end }}
+
+if [ "$settled" = 1 ]; then
+  store_hash handlers "$hash"
+fi
+exit 0

@@ -48,6 +48,10 @@ const ifRemoteDesktop = ifApp([
 
 const ifCaps = ifVar('caps-ctrl')
 
+// A caps_lock sent from to_if_alone has to be held, see the first rule below.
+// 200 ms is the value in Karabiner's to_if_alone documentation.
+const capsLockTap = { hold_down_milliseconds: 200 }
+
 writeToProfile('Default profile', [
   rule('Right ⌘ layer', ifRemoteDesktop.unless()).manipulators([
     navKeys({ right: '⌘' }, macTabs),
@@ -62,10 +66,13 @@ writeToProfile('Default profile', [
     // first so ⇧ does not fall into the `any` catch-all. Karabiner lifts a
     // mandatory modifier for as long as the output is a modifier, so ⇧ is
     // held again explicitly. caps_lock is optional so the tap still matches
-    // (and turns caps lock off) while caps lock is on.
+    // (and turns caps lock off) while caps lock is on. to_if_alone posts key
+    // down and key up at the same instant, and macOS ignores a caps lock
+    // press that short, so the key is held for the duration Karabiner's
+    // docs recommend.
     map('caps_lock', 'shift', 'caps_lock')
       .to('left_control', 'left_shift')
-      .toIfAlone('caps_lock'),
+      .toIfAlone('caps_lock', undefined, capsLockTap),
     map('caps_lock', null, 'any').to('left_control').toIfAlone('escape'),
   ]),
 
@@ -98,11 +105,12 @@ writeToProfile('Default profile', [
     map('left_arrow', 'control', 'any').to('home'),
     map('right_arrow', 'control', 'any').to('end'),
     // ⇧ + caps: held is ⇧⌃ (with the variable, like below), tapped alone is
-    // the real caps lock; ⇧ held again and caps_lock optional as above.
+    // the real caps lock; ⇧ held again, caps_lock optional and the tap held
+    // as above.
     map('caps_lock', 'shift', 'caps_lock')
       .toVar('caps-ctrl', 1, 0)
       .to('left_control', 'left_shift')
-      .toIfAlone('caps_lock'),
+      .toIfAlone('caps_lock', undefined, capsLockTap),
     // caps = ⌃ like on the mac, but it also sets a variable so a/e can
     // become home/end without swallowing ⌘a/⌘e (⌘ is ⌃ here as well).
     map('caps_lock', null, 'any')

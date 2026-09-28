@@ -1,0 +1,82 @@
+# File handlers: which app opens which file types, by extension.
+#
+# One entry per app: the bundle id LaunchServices knows it by, the bundle in
+# /Applications the script checks before it touches anything, and the
+# extensions. The list is rendered into
+# .chezmoiscripts/run_after_65-file-handlers.sh.tmpl, which asks duti for the
+# current handler of every extension and sets the ones that differ, once per
+# version of this file: macOS confirms every change with a dialog, and the
+# answer given there is kept until the list changes.
+#
+# The bundle id of an app: `osascript -e 'id of app "Visual Studio Code"'`.
+# The current handler of an extension: `duti -x md`.
+#
+# Extensions are lowercase and carry no dot. `ts` is also MPEG transport
+# stream to macOS; a video with that extension opens in VS Code as well, which
+# is the price of the TypeScript one.
+#
+# Only an extension some installed app declares can get a handler: for the
+# rest LaunchServices makes up a `dyn.` type on the spot and refuses to bind
+# it, so the script skips them with a note. VS Code declares most of the list
+# in its Info.plist (CFBundleDocumentTypes); the ones it does not (tsx, kt,
+# tsv, patch) bind where another editor declares them. fish, jsonc, svelte,
+# graphql, proto, tf, xsl and xsd are declared by nothing on the first Mac
+# this ran on, so they are not listed.
+
+handlers:
+  - bundle: com.microsoft.VSCode
+    app: Visual Studio Code.app
+    extensions:
+      # text, markup and tables
+      - md
+      - markdown
+      - txt
+      - log
+      - xml
+      - csv
+      - tsv
+      # data and configuration
+      - json
+      - yaml
+      - yml
+      - toml
+      - ini
+      - cfg
+      - conf
+      - properties
+      - lock
+      # web
+      - js
+      - mjs
+      - cjs
+      - jsx
+      - ts
+      - tsx
+      - css
+      - scss
+      - less
+      - vue
+      # shells
+      - sh
+      - bash
+      - zsh
+      # languages
+      - py
+      - rb
+      - go
+      - rs
+      - java
+      - kt
+      - swift
+      - c
+      - h
+      - cpp
+      - hpp
+      - cs
+      - lua
+      - php
+      - pl
+      - sql
+      # diffs
+      - diff
+      - patch

@@ -20,7 +20,8 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply \
 
 That installs chezmoi, clones this repo, and applies it: Homebrew and packages,
 fish, git and GitHub, asdf, the Claude Code CLI, Karabiner, macOS defaults,
-the Dock, iTerm2, the display settings, and the checklist at the end.
+the Dock, iTerm2, the display settings, the file types that open in VS Code,
+and the checklist at the end.
 
 The flags are not decoration:
 
@@ -427,6 +428,38 @@ carries no dangling link and the apply after the app arrives adds it. lazygit's
 managed config opens files in VS Code through that same `code` command, so it
 works on both kinds of Mac once the launcher is there.
 
+## File handlers
+
+The code-related file types (Markdown, XML, CSV, JSON, YAML, the shells, the
+web and systems languages, diffs) open in VS Code. The table is
+`.chezmoidata/handlers.yaml`: one entry per app with its bundle id, its
+bundle in `/Applications` and the extensions. Adding a type is one line
+there.
+
+`run_after_65-file-handlers.sh.tmpl` sets them through
+[duti](https://github.com/moretension/duti), a core formula. Since macOS 26
+that is not silent: macOS confirms every change with a Finder dialog, "Do you
+want all documents with the extension .md to open with Code, or keep using
+CotEditor?", one per file type, and duti does not wait for the answer. So the
+script asks once per version of the table. It looks up the current handler of
+every extension, sets the ones that differ, and stores the table's hash in
+`~/.local/state/dotfiles/handlers.hash`; from then on the apply is silent and
+an answer of "Keep", or a type reassigned by hand, stands until the table
+changes. Answered "Keep" by mistake? Delete the hash and apply: only the
+types that still point elsewhere are asked again.
+
+The hash is stored only after a run that could do its work. An app that is not
+installed yet is a retry on the next apply (on a managed Mac VS Code arrives
+through Self Service), as is a type LaunchServices refused. An extension no
+installed app declares is different: LaunchServices has no type for it, only a
+`dyn.` identifier it makes up on the spot, and refuses to bind that. Such an
+extension is skipped with a note, which is why the table lists no `fish` or
+`jsonc`. To see what opens a type today:
+
+```sh
+duti -x md
+```
+
 ## Manual checklist
 
 Some of macOS cannot be set by a script. `run_after_90-report.sh.tmpl` runs
@@ -527,7 +560,7 @@ current list and adding a script means adding one file with a free number:
 | `3x` | GitHub and ssh |
 | `4x` | developer tools: asdf, the Claude Code CLI |
 | `5x` | keyboard, and the quarantine flag on apps from the portal |
-| `6x` | macOS settings: defaults, Dock, Downloads view, iTerm2, display |
+| `6x` | macOS settings: defaults, Dock, Downloads view, iTerm2, display, file handlers |
 | `90` | the report, last |
 
 Two rules behind the names. The Homebrew installer is the only `before`
