@@ -95,15 +95,22 @@ writeToProfile('Default profile', [
       'left_shift',
       'left_control',
     ]),
-    // Both ⌘ (= both ⌃ here) + j/l: layer output isn't re-manipulated, so
-    // ⌃← from the layer would never hit the Home/End rules below.
+    // Both ⌘ (= both ⌃ here) + j/l/i/k: layer output isn't re-manipulated,
+    // so ⌃← from the layer would never hit the Home/End rules below.
     map('j', ['left_control', 'right_control'], 'any').to('home'),
     map('l', ['left_control', 'right_control'], 'any').to('end'),
+    map('i', ['left_control', 'right_control'], 'any').to('home', 'left_control'),
+    map('k', ['left_control', 'right_control'], 'any').to('end', 'left_control'),
     navKeys('right_control', windowsTabs),
     // Physical ⌘ is already control here, so ⌘← / ⌘→ become Home / End
     // (and ⇧⌘← / ⇧⌘→ select to them). Caps+← / caps+→ land here as well.
     map('left_arrow', 'control', 'any').to('home'),
     map('right_arrow', 'control', 'any').to('end'),
+    // ⌘↑ / ⌘↓ are ⌃↑ / ⌃↓ here, which macOS grabs for Mission Control and
+    // App Exposé before the client sees them. Ctrl+Home / Ctrl+End is the
+    // Windows "start / end of file"; ⇧ passes through, so ⇧⌘↑ selects to it.
+    map('up_arrow', 'control', 'any').to('home', 'left_control'),
+    map('down_arrow', 'control', 'any').to('end', 'left_control'),
     // ⇧ + caps: held is ⇧⌃ (with the variable, like below), tapped alone is
     // the real caps lock; ⇧ held again, caps_lock optional and the tap held
     // as above.
