@@ -90,6 +90,10 @@ writeToProfile('Default profile', [
     // Plain ⌘q stays ⌘q: quits the client. ctrl+q for Windows is on caps+q,
     // and ⌘⇧q goes to Windows too instead of opening the macOS log-out dialog.
     map('q', 'left_control').condition(ifCaps.unless()).to('q', 'left_command'),
+    // ⌘⇧k stays ⌘⇧k; ctrl+shift+k for Windows is on caps+⇧+k.
+    map('k', ['left_control', 'shift'])
+      .condition(ifCaps.unless())
+      .to('k', ['left_command', 'left_shift']),
     // Command + Option + i opens dev tools.
     map('i', ['left_control', 'left_option']).to('i', [
       'left_shift',
