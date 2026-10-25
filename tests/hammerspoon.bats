@@ -181,6 +181,7 @@ managed_targets() {
   grep -qxF 'local trigger = "s"' "$WINDOWS"
   grep -qxF 'local modifiers = { "ctrl" }' "$WINDOWS"
   grep -qxF 'local message = require("status-message")' "$WINDOWS"
+  grep -qF 'windowLayoutMode:bind({}, "escape", function()' "$WINDOWS"
   # Every layout the modal binds is still reachable.
   for layout in centerWithFullHeight left40 right60 upLeft downRight nextScreen; do
     grep -qF "local function $layout(" "$WINDOWS"

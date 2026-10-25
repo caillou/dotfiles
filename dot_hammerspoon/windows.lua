@@ -288,11 +288,14 @@ end
 local message = require("status-message")
 windowLayoutMode.statusMessage = message.new(msgStr)
 
--- Use modifiers+trigger to toggle WindowLayout Mode
+-- Use modifiers+trigger to toggle WindowLayout Mode; escape leaves it too.
 local enterHotkey = hs.hotkey.bind(modifiers, trigger, function()
   windowLayoutMode:enter()
 end)
 windowLayoutMode:bind(modifiers, trigger, function()
+  windowLayoutMode:exit()
+end)
+windowLayoutMode:bind({}, "escape", function()
   windowLayoutMode:exit()
 end)
 
