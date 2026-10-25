@@ -16,3 +16,13 @@
 	autoSetupRemote = true
 [rerere]
 	enabled = true
+# Written by `gh auth setup-git`, kept exactly as gh writes it (the empty
+# helper line resets the osxkeychain default for these hosts; the gh path is
+# absolute because that is what gh writes). gh rewrites these lines verbatim
+# when asked again, so the file stays byte-identical and apply stays quiet.
+[credential "https://github.com"]
+	helper = 
+	helper = !/opt/homebrew/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/opt/homebrew/bin/gh auth git-credential
