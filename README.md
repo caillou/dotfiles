@@ -348,6 +348,16 @@ record. It is a hack: drop both once
 [homerow#226](https://github.com/nchudleigh/homerow/issues/226) are closed
 and the fixed release is installed, then record ⌘⇧Space in Homerow again.
 
+Homerow starts at login through a launch agent chezmoi writes to
+`~/Library/LaunchAgents/ch.caillou.homerow.plist`, which runs `open -g -a
+Homerow`. Homerow's own "launch at login" switch is a login item the app
+registers from inside, so nothing outside the app can turn it on, and a fresh
+install would sit in `/Applications` until someone double-clicks it. The script
+`run_after_56-homerow.sh.tmpl` loads the agent when Homerow is installed, which
+launches it right away, and reloads it after an edit to the agent file; a loaded
+agent with an unchanged file is left alone, so a Homerow you quit stays quit
+until the next login.
+
 ## Hammerspoon
 
 `~/.hammerspoon` is three plain Lua files, applied like any other dotfile:
@@ -554,6 +564,7 @@ dot_config/private_fish/   fish; `private_` means mode 0700
 dot_config/lazygit/        lazygit's config; its state and PR cache next to it are never managed
 dot_hammerspoon/           init.lua, windows.lua, status-message.lua
 dot_local/                 the `code` symlink and the folders the `hs` installer needs
+private_Library/           the launch agent that starts Homerow at login
 dot_*                      the rest of the home directory, `dot_` standing in for the leading dot
 docs/PRDs/                 the PRD and the research behind all of this
 tests/                     bats suites, the Python unit tests, shellcheck and the secrets check
@@ -570,7 +581,7 @@ current list and adding a script means adding one file with a free number:
 | `2x` | shells: fish plugins, the login shell |
 | `3x` | GitHub and ssh |
 | `4x` | developer tools: asdf, the Claude Code CLI |
-| `5x` | keyboard, and the quarantine flag on apps from the portal |
+| `5x` | keyboard, the quarantine flag on apps from the portal, Homerow's login agent |
 | `6x` | macOS settings: defaults, Dock, Downloads view, iTerm2, display, file handlers |
 | `90` | the report, last |
 

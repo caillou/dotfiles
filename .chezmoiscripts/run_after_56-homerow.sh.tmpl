@@ -1,0 +1,40 @@
+#!/bin/sh
+# Homerow: loads the login agent that starts Homerow, which also launches it now.
+{{ template "facts.sh" . }}
+# The agent file is private_Library/LaunchAgents/ch.caillou.homerow.plist, so
+# chezmoi has written it before this script runs. launchd reads that folder at
+# login by itself; this script matters for the session the install happens in,
+# where nothing else would open a freshly installed Homerow, and after an edit
+# to the agent file, which launchd does not notice until the next login. The
+# hash of the file loaded last says whether a reload is due. A loaded agent
+# with an unchanged file is left alone: a Homerow the user quit stays quit.
+
+LAUNCHCTL="${DOTFILES_LAUNCHCTL:-launchctl}"
+USER_ID="${DOTFILES_UID:-$(id -u)}"
+LABEL="ch.caillou.homerow"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+
+if ! app_present 'Homerow.app'; then
+  exit 0
+fi
+
+if [ ! -f "$PLIST" ]; then
+  echo "homerow: $PLIST is missing, so the login agent was not loaded; the next \`chezmoi apply\` writes it"
+  exit 0
+fi
+
+hash="$(file_hash "$PLIST")"
+if "$LAUNCHCTL" print "gui/$USER_ID/$LABEL" >/dev/null 2>&1; then
+  if hash_unchanged homerow-agent "$hash"; then
+    exit 0
+  fi
+  "$LAUNCHCTL" bootout "gui/$USER_ID/$LABEL" >/dev/null 2>&1 || true
+fi
+
+if "$LAUNCHCTL" bootstrap "gui/$USER_ID" "$PLIST"; then
+  store_hash homerow-agent "$hash"
+  echo "homerow: login agent loaded and Homerow launched; approve Accessibility when it asks"
+else
+  echo "homerow: could not load the login agent; run \`launchctl bootstrap gui/$USER_ID $PLIST\` by hand"
+fi
+exit 0

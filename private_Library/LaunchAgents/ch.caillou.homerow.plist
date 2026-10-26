@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Starts Homerow at login. Homerow keeps its own "launch at login" switch, but
+  that switch is a login item it registers from inside the app, which nothing
+  outside the app can turn on; a fresh install sits in /Applications until
+  someone double-clicks it. This agent opens the app at every login and, when
+  run_after_56-homerow loads it, right after the install. `open` of an app
+  that already runs is a no-op, so the two mechanisms never fight.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ch.caillou.homerow</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/open</string>
+    <string>-g</string>
+    <string>-a</string>
+    <string>Homerow</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>
