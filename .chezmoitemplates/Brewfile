@@ -5,7 +5,7 @@
 # runs `brew bundle` on the result, which it leaves in the state directory.
 # Edit this file, not the generated copy, then `chezmoi apply`.
 #
-# Formulae and fonts install on every Mac, a managed one included. Desktop
+# Formulae, fonts and Homerow install on every Mac, a managed one included. Desktop
 # casks and App Store apps are data, not template lines, because the script
 # has to skip the ones that are already in /Applications without Homebrew.
 #
@@ -60,6 +60,12 @@ brew "mactop"
 cask "font-ibm-plex-mono"
 cask "font-ibm-plex-sans"
 cask "font-anonymice-nerd-font"
+
+# Homerow: keyboard-driven clicking (labels on ⌘⇧Space). Every Mac, a managed
+# one included: no portal carries it, and it is never installed by hand, so
+# there is nothing for `brew bundle` to adopt. The Karabiner rule and the
+# defaults section that turn ⌘⇧Space into F20 for it run on every Mac too.
+cask "homerow"
 {{ if .personal }}
 # Personal.
 tap "gbevin/tools", trusted: true

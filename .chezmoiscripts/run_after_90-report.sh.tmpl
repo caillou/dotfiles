@@ -61,6 +61,11 @@ if app_present 'Hammerspoon.app'; then
   note 'Accessibility, and Input Monitoring when a hotkey does not fire.'
 fi
 
+if app_present 'Homerow.app'; then
+  step 'Approve Homerow in System Settings > Privacy & Security: Accessibility.'
+  note 'Homerow asks on its first launch; its labels need the permission.'
+fi
+
 # --- settings only a human can finish --------------------------------------
 
 step 'Turn dictation on once by hand: press Control twice, accept the consent'

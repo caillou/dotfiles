@@ -189,10 +189,10 @@ back from the rendered copy.
 
 ## Adding a package
 
-Formulae, taps and fonts live in `.chezmoitemplates/Brewfile`, in a core block
-and two blocks guarded by the `personal` and `embedded` flags. Fonts are casks
-but belong in the Brewfile because they install on every Mac, a managed one
-included.
+Formulae, taps, fonts and Homerow live in `.chezmoitemplates/Brewfile`, in a
+core block and two blocks guarded by the `personal` and `embedded` flags. Fonts
+and Homerow are casks but belong in the Brewfile because they install on every
+Mac, a managed one included: no portal carries them.
 
 Either order works:
 
@@ -404,9 +404,9 @@ stored in `~/.config/chezmoi/chezmoi.toml`. No script re-detects it, so
 correcting a wrong guess means editing `managed = true` or `managed = false`
 there and applying again.
 
-On a managed Mac the apply installs formulae and fonts and nothing else. Casks
-and App Store apps are never appended to the Brewfile, so Homebrew cannot fight
-the employer's software distribution. Instead the report at the end lists the
+On a managed Mac the apply installs formulae, fonts and Homerow and nothing
+else. Casks and App Store apps are never appended to the Brewfile, so Homebrew
+cannot fight the employer's software distribution. Instead the report at the end lists the
 apps from `.chezmoidata/apps.yaml`, in the groups this machine enabled, whose
 bundle is missing from `/Applications` right now. That list is computed live,
 not remembered from an earlier run. Rows that install no app bundle are left
@@ -488,6 +488,8 @@ Every apply, while the app is installed:
   printed as long as the app is there.
 - **Approve Hammerspoon** in the same pane: Accessibility, plus Input
   Monitoring when a hotkey does not fire.
+- **Approve Homerow** in the same pane: Accessibility. It asks on its first
+  launch; the labels need the permission.
 - **Launch Karabiner-Elements once**, while
   `~/.config/karabiner/karabiner.json` does not exist. Karabiner creates the
   file and its Default profile on first launch; the next apply builds the rules
@@ -542,7 +544,7 @@ off. After that it does not prompt.
 .chezmoi.toml.tmpl         prompts and machine facts, rendered to ~/.config/chezmoi/chezmoi.toml
 .chezmoidata/apps.yaml     casks and App Store apps: kind, name, app, group
 .chezmoidata/dock.yaml     the Dock allow-list, in order
-.chezmoitemplates/Brewfile formulae, taps and fonts
+.chezmoitemplates/Brewfile formulae, taps, fonts and Homerow
 .chezmoitemplates/facts.sh shared script preamble: environment, predicates, markers
 .chezmoiscripts/           everything the apply runs, see below
 .downloads-view/           the Python module that writes the Downloads .DS_Store record

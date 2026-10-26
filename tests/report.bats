@@ -173,6 +173,7 @@ FAKE_APPS='{"apps":[
   report false
   refute_says 'Approve Karabiner-Elements'
   refute_says 'Approve Hammerspoon'
+  refute_says 'Approve Homerow'
 
   installed 'Karabiner-Elements.app'
   report false
@@ -185,6 +186,11 @@ FAKE_APPS='{"apps":[
   installed 'Hammerspoon.app'
   report false
   says 'Approve Hammerspoon'
+  refute_says 'Approve Homerow'
+
+  installed 'Homerow.app'
+  report false
+  says 'Approve Homerow'
 }
 
 @test "an installed Karabiner that has never run is asked to be launched once" {
@@ -334,7 +340,7 @@ FAKE_APPS='{"apps":[
   checklist="$(sed -n '/^## Manual checklist$/,/^## /p' "$REPO_ROOT/README.md")"
   [ -n "$checklist" ]
   for item in \
-    'Karabiner-Elements' 'Hammerspoon' 'Input Monitoring' 'Accessibility' \
+    'Karabiner-Elements' 'Hammerspoon' 'Homerow' 'Input Monitoring' 'Accessibility' \
     'Login Items & Extensions' 'karabiner/karabiner.json' 'dictation' \
     'tracking speed' 'Automatically adjust brightness' 'Azure DevOps' \
     'Self Service Portal' 'brew bundle' 'brew update && brew upgrade' \
