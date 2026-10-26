@@ -261,7 +261,7 @@ script is a catalogue only; it has not been updated since 2020.
 The setting goes in `.chezmoiscripts/run_onchange_after_60-defaults.sh.tmpl`,
 in the section for its domain (keyboard, input sources, scrolling, trackpad,
 screenshots, Finder, Safari, window manager, Dock, Control Center, wallpaper,
-dictation, power). Write it with the
+dictation, Homerow, power). Write it with the
 type macOS stored, which the diff shows you: `-bool`, `-int`, `-float`,
 `-string`.
 
@@ -338,6 +338,15 @@ so a change is live without an apply.
 
 After a wake-from-sleep the daemons sometimes need a kick: the fish function
 `karabinerRestart` does it.
+
+One rule exists for Homerow: ⌘⇧Space becomes F20, because Homerow 1.5.x only
+reacts to every second press of a hotkey that contains Space
+([homerow#212](https://github.com/nchudleigh/homerow/issues/212)). The
+defaults script sets Homerow's shortcut to F20, a key its recorder cannot
+record. It is a hack: drop both once
+[homerow#212](https://github.com/nchudleigh/homerow/issues/212) and
+[homerow#226](https://github.com/nchudleigh/homerow/issues/226) are closed
+and the fixed release is installed, then record ⌘⇧Space in Homerow again.
 
 ## Hammerspoon
 
