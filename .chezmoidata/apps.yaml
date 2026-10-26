@@ -15,8 +15,8 @@
 #
 # The list is the classification reviewed with the user, recorded in
 # docs/PRDs/2026-09-10-chezmoi-mac-bootstrap/research-notes.md section 9, in
-# that order. Fonts are casks too but live in the Brewfile: they install on
-# every Mac, managed included.
+# that order. Fonts and Neru are casks too but live in the Brewfile: they
+# install on every Mac, managed included, since no portal carries them.
 #
 # Homebrew renamed the `handbrake` cask to `handbrake-app`; the new name is
 # used here so the Caskroom check below finds the directory Homebrew creates.
@@ -31,7 +31,6 @@ apps:
   - { kind: cask, name: "karabiner-elements", app: "Karabiner-Elements.app", group: core }
   - { kind: cask, name: "alfred", app: "Alfred 5.app", group: core }
   - { kind: cask, name: "istat-menus", app: "iStat Menus.app", group: core }
-  - { kind: cask, name: "homerow", app: "Homerow.app", group: core }
   - { kind: cask, name: "the-unarchiver", app: "The Unarchiver.app", group: core }
   - { kind: cask, name: "docker-desktop", app: "Docker.app", group: core }
   - { kind: cask, name: "obsidian", app: "Obsidian.app", group: core }

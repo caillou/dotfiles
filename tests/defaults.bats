@@ -70,12 +70,7 @@ EOF
   stub activateSettings '$DEFAULTS_LOG' </dev/null
   stub osascript '$DEFAULTS_LOG' <<'EOF'
 [ -z "${OSASCRIPT_FAILS:-}" ] || exit 1
-# `application "Homerow" is running` answers true only when a test says so.
-case "$*" in
-*'"Homerow" is running'*) [ -z "${HOMEROW_RUNNING:-}" ] || echo true ;;
-esac
 EOF
-  stub open '$DEFAULTS_LOG' </dev/null
   stub hidutil '$DEFAULTS_LOG' <<'EOF'
 # POINTER_LIVE is the one value hidutil printed up to macOS 26; POINTER_TABLE
 # is the per-device table it prints since macOS 27, verbatim.
@@ -456,27 +451,6 @@ EOF
   applied
   run grep -E 'persistent-apps|persistent-others' "$LOG"
   [ "$status" -ne 0 ]
-}
-
-@test "homerow: the F20 shortcut is written; a stopped Homerow stays stopped" {
-  applied
-  [ "$status" -eq 0 ]
-  logged 'defaults write com.superultra.Homerow non-search-shortcut -string F20'
-  logged 'osascript -e application "Homerow" is running'
-  ! grep -q 'tell application "Homerow" to quit' "$LOG"
-  ! grep -q '^open ' "$LOG"
-}
-
-@test "homerow: a running Homerow is quit after the write and launched again" {
-  export HOMEROW_RUNNING=1
-  apply
-  [ "$status" -eq 0 ]
-  write="$(at "$LOG" 'defaults write com.superultra.Homerow non-search-shortcut -string F20')"
-  quit="$(at "$LOG" 'osascript -e tell application "Homerow" to quit')"
-  launch="$(at "$LOG" 'open -a Homerow')"
-  [ -n "$launch" ]
-  [ "$write" -lt "$quit" ]
-  [ "$quit" -lt "$launch" ]
 }
 
 @test "dictation is enabled with its three languages" {

@@ -1,0 +1,30 @@
+#!/bin/sh
+# Neru: registers Neru as a login service, so hints are one hotkey away after
+# every login. The config is a plain dotfile (dot_config/neru/config.toml).
+{{ template "facts.sh" . }}
+# Neru comes with `brew bundle` (script 10), on a managed Mac too, so it can
+# arrive on a later apply than this one: a missing neru is a skip, not a
+# failure. The cask links the CLI into Homebrew's bin, which the preamble puts
+# on PATH.
+NERU="${DOTFILES_NERU:-neru}"
+if ! has_command "$NERU"; then
+  echo "neru: Neru is not installed, skipping. The next \`chezmoi apply\` registers its login service."
+  exit 0
+fi
+
+# `neru services install` writes this launchd agent, starts Neru, and refuses
+# to run while the file exists, so the file is the marker. A settled Mac
+# says nothing.
+PLIST="$HOME/Library/LaunchAgents/com.y3owk1n.neru.plist"
+if [ -f "$PLIST" ]; then
+  exit 0
+fi
+
+# The first launch asks for Accessibility; the report at the end of the apply
+# repeats that, since no script may read whether it was granted.
+if "$NERU" services install; then
+  echo "neru: login service registered and started; approve Accessibility when macOS asks"
+else
+  echo "neru: could not register the login service; run \`neru services install\` by hand"
+fi
+exit 0

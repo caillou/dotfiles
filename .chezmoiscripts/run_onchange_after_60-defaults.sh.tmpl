@@ -349,23 +349,6 @@ else
   echo "defaults: no $PYTHON, skipping the dictation shortcut"
 fi
 
-# --- Homerow ---------------------------------------------------------------
-
-# Homerow 1.5.x swallows every other press of a hotkey that contains Space
-# (nchudleigh/homerow#212). Karabiner turns ⌘⇧Space into F20, a key no
-# keyboard has, and Homerow listens on F20. Its shortcut recorder has no name
-# for that key, so the value is written here, in the form the recorder stores
-# ("F12" when F12 is recorded). Homerow reads its preferences at launch, so a
-# running copy is quit and launched again; `is running` keeps a stopped one
-# stopped and a Mac without Homerow untouched. A hack: remove this section and
-# the Karabiner rule once nchudleigh/homerow#212 and #226 are closed and the
-# fix is installed; the shortcut is then recorded as ⌘⇧Space in Homerow again.
-defaults write com.superultra.Homerow non-search-shortcut -string F20
-if [ "$(osascript -e 'application "Homerow" is running' 2>/dev/null)" = true ]; then
-  osascript -e 'tell application "Homerow" to quit' >/dev/null 2>&1 || true
-  open -a Homerow
-fi
-
 # --- Power -----------------------------------------------------------------
 
 # pmset needs sudo, so every value is compared first: a re-run on a machine

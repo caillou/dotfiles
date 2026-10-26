@@ -185,6 +185,11 @@ FAKE_APPS='{"apps":[
   installed 'Hammerspoon.app'
   report false
   says 'Approve Hammerspoon'
+  refute_says 'Approve Neru'
+
+  installed 'Neru.app'
+  report false
+  says 'Approve Neru'
 }
 
 @test "an installed Karabiner that has never run is asked to be launched once" {
@@ -334,7 +339,7 @@ FAKE_APPS='{"apps":[
   checklist="$(sed -n '/^## Manual checklist$/,/^## /p' "$REPO_ROOT/README.md")"
   [ -n "$checklist" ]
   for item in \
-    'Karabiner-Elements' 'Hammerspoon' 'Input Monitoring' 'Accessibility' \
+    'Karabiner-Elements' 'Hammerspoon' 'Neru' 'Input Monitoring' 'Accessibility' \
     'Login Items & Extensions' 'karabiner/karabiner.json' 'dictation' \
     'tracking speed' 'Automatically adjust brightness' 'Azure DevOps' \
     'Self Service Portal' 'brew bundle' 'brew update && brew upgrade' \
