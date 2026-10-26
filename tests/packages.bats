@@ -66,13 +66,10 @@ refute_brewfile_has() {
     brewfile_has 'cask "font-ibm-plex-mono"'
     brewfile_has 'cask "font-ibm-plex-sans"'
     brewfile_has 'cask "font-anonymice-nerd-font"'
-    brewfile_has 'cask "y3owk1n/tap/neru"'
-    # The tap is reached through the cask's full name; see the template.
-    refute_brewfile_has 'tap "y3owk1n/tap"'
   done
 }
 
-@test "a managed machine gets formulae, fonts and Neru only" {
+@test "a managed machine gets formulae and fonts only" {
   stub_brew
   packages true true true
   [ "$status" -eq 0 ]
@@ -81,8 +78,7 @@ refute_brewfile_has() {
   run grep '^cask ' "$BREWFILE"
   [ "$output" = 'cask "font-ibm-plex-mono"
 cask "font-ibm-plex-sans"
-cask "font-anonymice-nerd-font"
-cask "y3owk1n/tap/neru"' ]
+cask "font-anonymice-nerd-font"' ]
 }
 
 @test "the personal group appears only when its flag is set" {

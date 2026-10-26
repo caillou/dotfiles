@@ -61,12 +61,6 @@ if app_present 'Hammerspoon.app'; then
   note 'Accessibility, and Input Monitoring when a hotkey does not fire.'
 fi
 
-if app_present 'Neru.app'; then
-  step 'Approve Neru in System Settings > Privacy & Security: Accessibility.'
-  note 'Neru asks on its first launch. Screen Recording is only asked for when'
-  note 'a hint strategy other than the accessibility tree is configured.'
-fi
-
 # --- settings only a human can finish --------------------------------------
 
 step 'Turn dictation on once by hand: press Control twice, accept the consent'

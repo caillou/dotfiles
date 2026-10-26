@@ -5,10 +5,9 @@
 # runs `brew bundle` on the result, which it leaves in the state directory.
 # Edit this file, not the generated copy, then `chezmoi apply`.
 #
-# Formulae, fonts and Neru install on every Mac, a managed one included.
-# Desktop casks and App Store apps are data, not template lines, because the
-# script has to skip the ones that are already in /Applications without
-# Homebrew.
+# Formulae and fonts install on every Mac, a managed one included. Desktop
+# casks and App Store apps are data, not template lines, because the script
+# has to skip the ones that are already in /Applications without Homebrew.
 #
 # The list is the classification in
 # docs/PRDs/2026-09-10-chezmoi-mac-bootstrap/research-notes.md section 9.
@@ -61,19 +60,6 @@ brew "mactop"
 cask "font-ibm-plex-mono"
 cask "font-ibm-plex-sans"
 cask "font-anonymice-nerd-font"
-
-# Neru: keyboard-driven clicking (hints on ⌘⇧Space), the Homerow replacement.
-# Every Mac, a managed one included: no portal carries it, and it is never
-# installed by hand, so there is nothing for `brew bundle` to adopt. The cask
-# strips its own quarantine flag and links `neru` into Homebrew's bin; script
-# 56 registers the login service. Its config is dot_config/neru/config.toml.
-#
-# No `tap` line on purpose. `brew tap` checks every trusted formula in a tap
-# for every platform, and three formulae in this tap (cpenv, nvs, uts) only
-# declare macOS URLs, so the line fails with "invalid syntax in tap" and
-# fails the bundle with it (Homebrew 7.0, October 2026). Installing the cask
-# by its full name taps the repository without that check.
-cask "y3owk1n/tap/neru"
 {{ if .personal }}
 # Personal.
 tap "gbevin/tools", trusted: true

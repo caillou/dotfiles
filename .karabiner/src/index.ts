@@ -61,6 +61,15 @@ writeToProfile('Default profile', [
       map('v').to('v', ['left_control', 'left_option']),
     ]),
   ]),
+  // Homerow 1.5.x swallows every other press of a hotkey that contains Space
+  // (nchudleigh/homerow#212), so ⌘⇧Space becomes F20, a key no keyboard has,
+  // and Homerow listens on F20 (the Homerow section of the defaults script
+  // sets that). Not in Remote Desktop: ⌃⇧Space goes to Windows there as
+  // before. A hack: remove this rule and that section once homerow#212 and
+  // homerow#226 are closed and the fix is installed.
+  rule('⌘⇧Space is F20 for Homerow', ifRemoteDesktop.unless()).manipulators([
+    map('spacebar', ['command', 'shift']).to('f20'),
+  ]),
   rule('CAPS_LOCK to esc/control', ifRemoteDesktop.unless()).manipulators([
     // ⇧ + caps held is ⇧⌃; tapped alone it is the real caps lock. It comes
     // first so ⇧ does not fall into the `any` catch-all. Karabiner lifts a

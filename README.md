@@ -40,7 +40,7 @@ Three questions, once per machine:
 
 | prompt | default | effect |
 |---|---|---|
-| Managed by an employer | the answer of `profiles status -type enrollment` | no desktop casks, no App Store apps |
+| Managed by an employer | the answer of `profiles status -type enrollment` | no casks, no App Store apps |
 | Install the personal package group | no | the personal formulae, casks and App Store apps |
 | Install the embedded package group | no | platformio, open-ocd, dfu-util, gcc-arm-embedded |
 
@@ -261,7 +261,7 @@ script is a catalogue only; it has not been updated since 2020.
 The setting goes in `.chezmoiscripts/run_onchange_after_60-defaults.sh.tmpl`,
 in the section for its domain (keyboard, input sources, scrolling, trackpad,
 screenshots, Finder, Safari, window manager, Dock, Control Center, wallpaper,
-dictation, power). Write it with the
+dictation, Homerow, power). Write it with the
 type macOS stored, which the diff shows you: `-bool`, `-int`, `-float`,
 `-string`.
 
@@ -339,37 +339,14 @@ so a change is live without an apply.
 After a wake-from-sleep the daemons sometimes need a kick: the fish function
 `karabinerRestart` does it.
 
-## Neru
-
-[Neru](https://github.com/y3owk1n/neru) puts letter labels on everything
-clickable (⌘⇧Space), a scroll mode on ⌘⇧S and a grid on ⌘⇧G. It replaced
-Homerow in October 2026: Homerow 1.5.x reacted to every second press of a
-hotkey containing Space
-([homerow#212](https://github.com/nchudleigh/homerow/issues/212)) and its
-maintainer had been silent for seven months, while Neru ships weekly and
-answers its issues.
-
-Neru is a cask in the Brewfile template, next to the fonts, so it installs on
-every Mac, a managed one included: no portal carries it, and nothing ever
-installs it by hand. The cask strips its own quarantine flag and links the
-`neru` CLI into Homebrew's bin. It is named in full, `y3owk1n/tap/neru`,
-with no `tap` line: `brew tap` checks every trusted formula in a tap for
-every platform, three formulae in that tap only declare macOS URLs, and the
-failing line would fail every bundle (Homebrew 7.0, October 2026). The full
-name taps the repository without that check. `brew upgrade --cask neru`
-updates it; the apply never upgrades.
-
-`~/.config/neru/config.toml` is a plain dotfile holding only what differs
-from Neru's defaults (every window on screen plus the menu bar and the Dock
-get hints; scrolling is on j k i l like the Karabiner layer). A key the file
-leaves out keeps its default, `neru config reload` applies an edit to the
-running daemon, and `neru config init` prints every option.
-
-Script 56 runs `neru services install` once, which writes the launchd agent
-`~/Library/LaunchAgents/com.y3owk1n.neru.plist`, starts Neru and keeps it
-starting at login; the file is the marker, and the script is silent while it
-exists. Neru asks for Accessibility on its first launch, and `neru doctor`
-lists what is granted.
+One rule exists for Homerow: ⌘⇧Space becomes F20, because Homerow 1.5.x only
+reacts to every second press of a hotkey that contains Space
+([homerow#212](https://github.com/nchudleigh/homerow/issues/212)). The
+defaults script sets Homerow's shortcut to F20, a key its recorder cannot
+record. It is a hack: drop both once
+[homerow#212](https://github.com/nchudleigh/homerow/issues/212) and
+[homerow#226](https://github.com/nchudleigh/homerow/issues/226) are closed
+and the fixed release is installed, then record ⌘⇧Space in Homerow again.
 
 ## Hammerspoon
 
@@ -427,9 +404,9 @@ stored in `~/.config/chezmoi/chezmoi.toml`. No script re-detects it, so
 correcting a wrong guess means editing `managed = true` or `managed = false`
 there and applying again.
 
-On a managed Mac the apply installs formulae, fonts and Neru and nothing else.
-Desktop casks and App Store apps are never appended to the Brewfile, so
-Homebrew cannot fight the employer's software distribution. Instead the report at the end lists the
+On a managed Mac the apply installs formulae and fonts and nothing else. Casks
+and App Store apps are never appended to the Brewfile, so Homebrew cannot fight
+the employer's software distribution. Instead the report at the end lists the
 apps from `.chezmoidata/apps.yaml`, in the groups this machine enabled, whose
 bundle is missing from `/Applications` right now. That list is computed live,
 not remembered from an earlier run. Rows that install no app bundle are left
@@ -511,9 +488,6 @@ Every apply, while the app is installed:
   printed as long as the app is there.
 - **Approve Hammerspoon** in the same pane: Accessibility, plus Input
   Monitoring when a hotkey does not fire.
-- **Approve Neru** in the same pane: Accessibility. Neru asks on its first
-  launch; Screen Recording comes up only with a hint strategy other than
-  the accessibility tree.
 - **Launch Karabiner-Elements once**, while
   `~/.config/karabiner/karabiner.json` does not exist. Karabiner creates the
   file and its Default profile on first launch; the next apply builds the rules
