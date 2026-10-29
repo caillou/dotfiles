@@ -1,0 +1,58 @@
+#!/bin/sh
+# Login agents: loads the launch agents that start Homerow and Maccy, which
+# also launches each app now.
+{{ template "facts.sh" . }}
+# The agent files are private_Library/LaunchAgents/<label>.plist, so chezmoi
+# has written them before this script runs. launchd reads that folder at login
+# by itself; this script matters for the session an install happens in, where
+# nothing else would open a freshly installed app, and after an edit to an
+# agent file, which launchd does not notice until the next login. The hash of
+# the file loaded last says whether a reload is due. A loaded agent with an
+# unchanged file is left alone: an app the user quit stays quit. An app that
+# is not installed is skipped without a word.
+
+LAUNCHCTL="${DOTFILES_LAUNCHCTL:-launchctl}"
+USER_ID="${DOTFILES_UID:-$(id -u)}"
+
+# load_agent <app> <label> [what the user does next]
+#
+# The messages and the hash are named after the label's last part, so
+# Homerow's hash kept its name, homerow-agent, when this script stopped being
+# Homerow's alone.
+load_agent() {
+  app="$1"
+  label="$2"
+  next="${3:-}"
+  name="${label##*.}"
+  plist="$HOME/Library/LaunchAgents/$label.plist"
+
+  if ! app_present "$app.app"; then
+    return 0
+  fi
+
+  if [ ! -f "$plist" ]; then
+    echo "$name: $plist is missing, so the login agent was not loaded; the next \`chezmoi apply\` writes it"
+    return 0
+  fi
+
+  hash="$(file_hash "$plist")"
+  if "$LAUNCHCTL" print "gui/$USER_ID/$label" >/dev/null 2>&1; then
+    if hash_unchanged "$name-agent" "$hash"; then
+      return 0
+    fi
+    "$LAUNCHCTL" bootout "gui/$USER_ID/$label" >/dev/null 2>&1 || true
+  fi
+
+  if "$LAUNCHCTL" bootstrap "gui/$USER_ID" "$plist"; then
+    store_hash "$name-agent" "$hash"
+    echo "$name: login agent loaded and $app launched${next:+; $next}"
+  else
+    echo "$name: could not load the login agent; run \`launchctl bootstrap gui/$USER_ID $plist\` by hand"
+  fi
+}
+
+load_agent Homerow ch.caillou.homerow 'approve Accessibility when it asks'
+# Maccy is installed by hand on the managed Mac only; .chezmoiignore writes
+# its agent only where the app is, and elsewhere this is a skip.
+load_agent Maccy ch.caillou.maccy
+exit 0

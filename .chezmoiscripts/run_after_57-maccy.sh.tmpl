@@ -1,0 +1,75 @@
+#!/bin/sh
+# Maccy: sets the shortcut that opens its clipboard history to ⌃⌥V.
+{{ template "facts.sh" . }}
+# Karabiner turns right ⌘ + V into ⌃⌥V (navKeys in .karabiner/src/index.ts),
+# and this is the other half: Maccy listens on ⌃⌥V. Maccy is installed by hand
+# on the managed Mac only, so the write sits here and not in the defaults
+# script: that one re-runs only when its own text changes, and a Maccy
+# installed after it last ran would never get the shortcut. This script runs
+# on every apply, does nothing without Maccy, and writes only a value that
+# differs, so a settled Mac is not touched.
+#
+# Maccy is sandboxed. `defaults` reaches the preferences in its container,
+# but that container exists only once Maccy has run; before that the write
+# would land in ~/Library/Preferences, which Maccy never reads. The login
+# agent script before this one launches a fresh install, so the container
+# is waited for briefly while Maccy starts.
+#
+# The value is the one Maccy's recorder stores for ⌃⌥V: key code 9 is V,
+# 6144 is the Carbon mask for Control (4096) plus Option (2048). Maccy reads
+# its shortcut at launch, so a running copy is quit and opened again.
+
+OSASCRIPT="${DOTFILES_OSASCRIPT:-osascript}"
+OPEN="${DOTFILES_OPEN:-open}"
+PGREP="${DOTFILES_PGREP:-pgrep}"
+
+DOMAIN="org.p0deje.Maccy"
+KEY="KeyboardShortcuts_popup"
+SHORTCUT='{"carbonKeyCode":9,"carbonModifiers":6144}'
+CONTAINER="$HOME/Library/Containers/$DOMAIN"
+
+if ! app_present 'Maccy.app'; then
+  exit 0
+fi
+
+maccy_running() {
+  "$PGREP" -x Maccy >/dev/null 2>&1
+}
+
+tries=0
+while [ ! -d "$CONTAINER" ] && maccy_running && [ "$tries" -lt 50 ]; do
+  sleep 0.1
+  tries=$((tries + 1))
+done
+if [ ! -d "$CONTAINER" ]; then
+  echo "maccy: Maccy has not run yet, so its ⌃⌥V shortcut was not set; open Maccy, then the next \`chezmoi apply\` sets it"
+  exit 0
+fi
+
+if default_is "$DOMAIN" "$KEY" "$SHORTCUT"; then
+  exit 0
+fi
+defaults write "$DOMAIN" "$KEY" -string "$SHORTCUT"
+
+if ! maccy_running; then
+  echo "maccy: shortcut set to ⌃⌥V; it applies when Maccy starts"
+  exit 0
+fi
+
+# quit is asynchronous; open before the old process is gone only raises it.
+"$OSASCRIPT" -e 'tell application "Maccy" to quit' >/dev/null 2>&1 || true
+tries=0
+while maccy_running && [ "$tries" -lt 50 ]; do
+  sleep 0.1
+  tries=$((tries + 1))
+done
+if maccy_running; then
+  echo "maccy: shortcut set to ⌃⌥V, but Maccy did not quit; quit it and open it again by hand"
+  exit 0
+fi
+if "$OPEN" -g -a Maccy; then
+  echo "maccy: shortcut set to ⌃⌥V and Maccy restarted"
+else
+  echo "maccy: shortcut set to ⌃⌥V, but Maccy could not be opened; open it by hand"
+fi
+exit 0

@@ -18,3 +18,13 @@ tests/**
 # cannot drag it in and no apply ever touches it.
 .hammerspoon/Spoons
 .hammerspoon/Spoons/**
+
+# Maccy is installed by hand, on the managed Mac only, so its login agent is
+# written only where the bundle is: a Mac without Maccy gets no agent that
+# fails at every login and shows up under Login Items. The apply after the
+# install writes it. Like symlink_code, the folder is DOTFILES_APPLICATIONS
+# when a test sets it.
+{{- $maccy := printf "%s/Maccy.app" (env "DOTFILES_APPLICATIONS" | default "/Applications") }}
+{{- if not (stat $maccy) }}
+Library/LaunchAgents/ch.caillou.maccy.plist
+{{- end }}

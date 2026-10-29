@@ -5,7 +5,7 @@
   that switch is a login item it registers from inside the app, which nothing
   outside the app can turn on; a fresh install sits in /Applications until
   someone double-clicks it. This agent opens the app at every login and, when
-  run_after_56-homerow loads it, right after the install. `open` of an app
+  run_after_56-login-agents loads it, right after the install. `open` of an app
   that already runs is a no-op, so the two mechanisms never fight.
 -->
 <plist version="1.0">

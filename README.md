@@ -348,15 +348,27 @@ record. It is a hack: drop both once
 [homerow#226](https://github.com/nchudleigh/homerow/issues/226) are closed
 and the fixed release is installed, then record ⌘⇧Space in Homerow again.
 
-Homerow starts at login through a launch agent chezmoi writes to
-`~/Library/LaunchAgents/ch.caillou.homerow.plist`, which runs `open -g -a
-Homerow`. Homerow's own "launch at login" switch is a login item the app
-registers from inside, so nothing outside the app can turn it on, and a fresh
-install would sit in `/Applications` until someone double-clicks it. The script
-`run_after_56-homerow.sh.tmpl` loads the agent when Homerow is installed, which
-launches it right away, and reloads it after an edit to the agent file; a loaded
-agent with an unchanged file is left alone, so a Homerow you quit stays quit
-until the next login.
+Homerow and Maccy start at login through launch agents chezmoi writes to
+`~/Library/LaunchAgents/ch.caillou.homerow.plist` and `ch.caillou.maccy.plist`,
+which run `open -g -a Homerow` and `open -g -a Maccy`. Each app's own "launch
+at login" switch is a login item the app registers from inside, so nothing
+outside the app can turn it on, and a fresh install would sit in
+`/Applications` until someone double-clicks it. The script
+`run_after_56-login-agents.sh.tmpl` loads each agent when its app is installed,
+which launches the app right away, and reloads it after an edit to the agent
+file; a loaded agent with an unchanged file is left alone, so an app you quit
+stays quit until the next login. Maccy is installed by hand on the managed Mac
+only and is not in `apps.yaml`; `.chezmoiignore` skips its agent while
+`/Applications/Maccy.app` is missing, so a Mac without Maccy gets nothing.
+
+Karabiner turns right ⌘ + V into ⌃⌥V, and `run_after_57-maccy.sh.tmpl` sets
+Maccy's popup shortcut to ⌃⌥V. It runs on every apply rather than in the
+defaults script, which re-runs only when its own text changes and would miss a
+Maccy installed later. It writes only when the value differs, and then
+restarts a running Maccy, which reads its shortcut at launch. Maccy is
+sandboxed: the write reaches its container only once Maccy has run, so on a
+fresh install the script waits for the copy script 56
+just launched, and otherwise leaves the shortcut to the next apply.
 
 ## Hammerspoon
 
@@ -564,7 +576,7 @@ dot_config/private_fish/   fish; `private_` means mode 0700
 dot_config/lazygit/        lazygit's config; its state and PR cache next to it are never managed
 dot_hammerspoon/           init.lua, windows.lua, status-message.lua
 dot_local/                 the `code` symlink and the folders the `hs` installer needs
-private_Library/           the launch agent that starts Homerow at login
+private_Library/           the launch agents that start Homerow and Maccy at login
 dot_*                      the rest of the home directory, `dot_` standing in for the leading dot
 docs/PRDs/                 the PRD and the research behind all of this
 tests/                     bats suites, the Python unit tests, shellcheck and the secrets check
@@ -581,7 +593,7 @@ current list and adding a script means adding one file with a free number:
 | `2x` | shells: fish plugins, the login shell |
 | `3x` | GitHub and ssh |
 | `4x` | developer tools: asdf, the Claude Code CLI |
-| `5x` | keyboard, the quarantine flag on apps from the portal, Homerow's login agent |
+| `5x` | keyboard, the quarantine flag on apps from the portal, the login agents, Maccy's shortcut |
 | `6x` | macOS settings: defaults, Dock, Downloads view, iTerm2, display, file handlers |
 | `90` | the report, last |
 
