@@ -57,11 +57,11 @@ refute_brewfile_has() {
   for managed in true false; do
     packages "$managed"
     [ "$status" -eq 0 ]
-    brewfile_has 'tap "jesseduffield/lazygit", trusted: true'
+    refute_brewfile_has 'tap "jesseduffield/lazygit", trusted: true'
     brewfile_has 'brew "chezmoi"'
     brewfile_has 'brew "fish"'
     brewfile_has 'brew "mas"'
-    brewfile_has 'brew "jesseduffield/lazygit/lazygit"'
+    brewfile_has 'brew "lazygit"'
     brewfile_has 'brew "mactop"'
     brewfile_has 'cask "font-ibm-plex-mono"'
     brewfile_has 'cask "font-ibm-plex-sans"'
