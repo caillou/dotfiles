@@ -53,6 +53,17 @@ const ifCaps = ifVar('caps-ctrl')
 const capsLockTap = { hold_down_milliseconds: 200 }
 
 writeToProfile('Default profile', [
+  // Finder's own ⌘↑ (enclosing folder) and ⌘↓ (open) give way to ⌥↑ / ⌥↓,
+  // which select the first / last item and scroll there. ⌘O still opens. ⇧
+  // passes through, so ⇧⌘↑ / ⇧⌘↓ extend the selection to the top / bottom.
+  // Both ⌘ + i / k do the same: the right ⌘ layer's output is not
+  // re-manipulated, so this rule comes before it and maps them itself.
+  rule('Finder: ⌘↑ / ⌘↓ go to top / bottom', ifApp('^com\\.apple\\.finder$')).manipulators([
+    map('i', ['left_command', 'right_command'], 'shift').to('up_arrow', 'left_option'),
+    map('k', ['left_command', 'right_command'], 'shift').to('down_arrow', 'left_option'),
+    map('up_arrow', 'command', 'shift').to('up_arrow', 'left_option'),
+    map('down_arrow', 'command', 'shift').to('down_arrow', 'left_option'),
+  ]),
   rule('Right ⌘ layer', ifRemoteDesktop.unless()).manipulators([
     navKeys({ right: '⌘' }, macTabs),
   ]),
