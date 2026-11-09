@@ -348,9 +348,6 @@ record. It is a hack: drop both once
 [homerow#226](https://github.com/nchudleigh/homerow/issues/226) are closed
 and the fixed release is installed, then record ⌘⇧Space in Homerow again.
 
-F10-F12 are the other way round from the rest of the F keys: pressed they are
-mute and volume, with fn the real F keys. That goes for Remote Desktop too.
-
 Homerow and Maccy start at login through launch agents chezmoi writes to
 `~/Library/LaunchAgents/ch.caillou.homerow.plist` and `ch.caillou.maccy.plist`,
 which run `open -g -a Homerow` and `open -g -a Maccy`. Each app's own "launch

@@ -81,19 +81,6 @@ writeToProfile('Default profile', [
   rule('⌘⇧Space is F20 for Homerow', ifRemoteDesktop.unless()).manipulators([
     map('spacebar', ['command', 'shift']).to('f20'),
   ]),
-  // The defaults script makes F1-F12 standard function keys (fnState). F10-F12
-  // go the other way round: pressed they are the media keys, with fn the real
-  // F keys. fn comes first so it does not fall into the `any` catch-all, which
-  // is there for ⌥⇧ fine volume steps. Remote Desktop included: the keys stay
-  // the Mac's volume there too, and Windows gets F10-F12 with fn.
-  rule('F10-F12 are media keys, fn makes them F keys').manipulators([
-    map('f10', 'fn', 'any').to('f10'),
-    map('f11', 'fn', 'any').to('f11'),
-    map('f12', 'fn', 'any').to('f12'),
-    map('f10', null, 'any').toConsumerKey('mute'),
-    map('f11', null, 'any').toConsumerKey('volume_decrement'),
-    map('f12', null, 'any').toConsumerKey('volume_increment'),
-  ]),
   rule('CAPS_LOCK to esc/control', ifRemoteDesktop.unless()).manipulators([
     // ⇧ + caps held is ⇧⌃; tapped alone it is the real caps lock. It comes
     // first so ⇧ does not fall into the `any` catch-all. Karabiner lifts a
